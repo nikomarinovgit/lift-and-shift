@@ -1,5 +1,4 @@
 #   VMware -> Exo
-#
 
 # Create Exo VM (minimum 2 CPU or clonezilla won't start) with init disk as small as possible (10Gi).
 # Attache security group nm-sg to allow ssh 
@@ -8,7 +7,7 @@
 exo c i stop nm-test-vm01
 
 # Resize the VM init disk to size as big as all the volumes in the source VM. (Web UI)
-exo c i start --rescue-profile=netboot nm-test-vm01
+exo c i start --rescue-profile=netboot-efi nm-test-vm01
 
 # Exo maybe can fix the path in the rescue console...
 # iPXE shell
