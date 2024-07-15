@@ -87,7 +87,6 @@ exo c i start nm-test-vm01
 version="3.10.0-123.el7.x86_64"
 # Dracut virtio_scsi, virtio_blk... modules inject in initramfs 
 # Backup the initramfs file you want to pach.
-version="3.10.0-123.el7.x86_64"
 cp /boot/initramfs-$version.img /boot/initramfs-$version.img.bak
 
 # Make sure the modules are missing in that initramfs.
