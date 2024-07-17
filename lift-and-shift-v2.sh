@@ -119,9 +119,12 @@ lsinitrd /boot/initramfs-$version.img | grep virtio
 # reboot the VM and use the $version kerenel.
 # THE END
 
+losetup /dev/loop1 /mnt/vdc1/vg_app-data
+mount /dev/loop1 /tmp/fstransform.mount.6127
 
 
-
+fstransform --opts-mkfs='-b size=4096' /dev/loop1 xfs
+dd if=/dev/loop1 of=/dev/mapper/vg_app-data bs=1G status=progress
 
 
 
