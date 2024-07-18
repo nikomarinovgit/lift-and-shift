@@ -74,17 +74,17 @@ vgchange -ay vg_app
 vgchange -ay vg_sys
 
 # Extract the image if it is compresed (done on the tmp block storage drive)
-gunzip -c /home/partimag/1/vg_app-data.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_app-data -W -r -F
-gunzip -c /home/partimag/1/vg_sys-audit.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-audit -W -r -F
-gunzip -c /home/partimag/1/vg_sys-home.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-home -W -r -F
-gunzip -c /home/partimag/1/vg_sys-log.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-log -W -r -F
-gunzip -c /home/partimag/1/vg_sys-opt.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-opt -W -r -F
-gunzip -c /home/partimag/1/vg_sys-root.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-root -W -r -F
-gunzip -c /home/partimag/1/vg_sys-tmp.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-tmp -W -r -F
+gunzip -c /home/partimag/nfr/vg_app-data.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_app-data -W -r -F
+gunzip -c /home/partimag/nfr/vg_sys-audit.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-audit -W -r -F
+gunzip -c /home/partimag/nfr/vg_sys-home.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-home -W -r -F
+gunzip -c /home/partimag/nfr/vg_sys-log.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-log -W -r -F
+gunzip -c /home/partimag/nfr/vg_sys-opt.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-opt -W -r -F
+gunzip -c /home/partimag/nfr/vg_sys-root.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-root -W -r -F
+gunzip -c /home/partimag/nfr/vg_sys-tmp.xfs-ptcl-img.gz.aaa | partclone.xfs -s - -O /dev/mapper/vg_sys-tmp -W -r -F
 ### merge multiple gzips
 # cat file1 file2 file3 > combined-file
 cat vg_sys-var.xfs-ptcl-img.gz.aaa vg_sys-var.xfs-ptcl-img.gz.aab > vg_sys-var.xfs-ptcl-img.gz
-gunzip -c /home/partimag/1/vg_sys-var.xfs-ptcl-img.gz | partclone.xfs -s - -O /dev/mapper/vg_sys-var -W -r -F
+gunzip -c /home/partimag/nfr/vg_sys-var.xfs-ptcl-img.gz | partclone.xfs -s - -O /dev/mapper/vg_sys-var -W -r -F
 
 ### mount -o loop,rw -t xfs vg.app.partcloned.img /mnt/vde1/vg_app
 # mount VG root and do post-clone

@@ -9,8 +9,8 @@
 #         50 GiB
 
 # Linux vlhydak003.at.inside 3.10.0-1160.119.1.el7.x86_64 #1 SMP Tue May 14 11:55:25 EDT 2024 x86_64 x86_64 x86_64 GNU/Linux
-# 10.2.232.44	IPv4	255.255.255.0	ens224	vlhydak003	
-# 10.247.166.45	IPv4	255.255.255.0	ens192	vlhydak003
+# 10.2.232.44	IPv4	255.255.255.0	ens224	vlhydak003	GW 10.2.232.254 DNS 10.2.35.73
+# 10.247.166.45	IPv4	255.255.255.0	ens192	vlhydak003  GW 10.247.166.126 DNS 10.2.42.11
 
 # vlhydak004
 # CPU: 8
