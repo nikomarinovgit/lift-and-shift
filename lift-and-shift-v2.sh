@@ -1,31 +1,14 @@
 #   VMware -> Exo
 
-# Create Exo VM (minimum 2 CPU or clonezilla won't start) with init disk as small as possible (10Gi). Attache " nm-rescue-10GB" bs and security group nm-sg to allow ssh 
-exo c i add nm-test-vm02 --disk-size 10 --instance-type Extra-Large  --template "Linux Ubuntu 24.04 LTS 64-bit" --security-group nm-sg -z AT-VIE-1 -Q
+# Create Exo VM (minimum 2 CPU or clonezilla won't start) with init disk as big as possible the soruce (10Gi). Attache " nm-rescue-10GB" bs and security group nm-sg to allow ssh 
+exo c i add nm-test-vm02 --disk-size 100 --instance-type Extra-Large  --template "Linux Ubuntu 24.04 LTS 64-bit" --security-group nm-sg -z AT-VIE-1 -Q
 exo c bs a " nm-rescue-10GB" nm-test-vm02 -z at-vie-1
 echo y | exo c bs d " nm-rescue-10GB" -z at-vie-1
-# Create and attache block starage to restore every coresponding disk from source VM.
-exo c bs add nm-bs-vm02-60GB --size 60 -z at-vie-1 -Q
-exo c bs add nm-bs-vm02-110GB --size 110 -z at-vie-1 -Q
-exo c bs a nm-bs-vm02-60GB nm-test-vm02 -z at-vie-1
-exo c bs a nm-bs-vm02-110GB nm-test-vm02 -z at-vie-1
-# Create TMP block storage bigger than all the gunziped backups.
-exo c bs add nm-bs-tmp-160GB --size 160 -z at-vie-1 -Q
-exo c bs a nm-bs-tmp-160GB nm-test-vm02 -z at-vie-1 -Q
-echo y | exo c bs d nm-bs-tmp-160GB -z at-vie-1
-
 
 echo y | exo c i stop nm-test-vm02 -Q
 
 # Resize the VM init disk to size as big as all the volumes in the source VM. (Web UI)
 echo y | exo c i start --rescue-profile=netboot-efi nm-test-vm02 -Q
-
-# Exo maybe can fix the path in the rescue console...
-# iPXE shell
-# >dhcp
-# >show net0/ip
-# 185.150.10.120
-sanboot https://boot.netboot.xyz/ipxe/netboot.xyz.iso
 
 # Enter in clonezilla bash shell.
 # clonezilla.sh to attache the s3-bucket (( sudo passwd root, sudo passwd... ) & maybe ssh user@REAL-IP)
@@ -125,6 +108,59 @@ mount /dev/loop1 /tmp/fstransform.mount.6127
 
 fstransform --opts-mkfs='-b size=4096' /dev/loop1 xfs
 dd if=/dev/loop1 of=/dev/mapper/vg_app-data bs=1G status=progress
+
+
+
+#############################################################################################3
+# home_folder=/home/partimag
+# source_folder=to_restore
+
+cnvt-ocs-dev -d /home/partimag to_restore sda vda
+
+# cnvt-ocs-dev -d /home/partimag to_restore sdb vda4
+
+vgremove vg_sys -f
+wipefs -a /dev/vda
+sfdisk /dev/vda < vda-pt.sf
+
+gunzip -c $(ls vda1*) | partclone.$(ls vda1* | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/vda1 -W -r -F
+
+for lvm in $(ls lvm_vg_*.conf); do
+    dev_uuid=$(cat $lvm | grep -m 1 -B 1 "device" | grep id | cut -d '"' -f 2) ;
+    dev_name=$(cat $lvm | grep -m 1 "device" | cut -d '"' -f 2) ;
+    vg_name=$(echo $lvm | cut -d '.' -f 1 | cut -c 5-) ;
+
+    [ -e "$lvm.bak" ] && echo -e "\e[32mBackup exists $lvm.bak\e[0m " || echo -e "\e[31mBackup does not exist. Creating...\e[0m" ; cp $lvm $lvm.bak ;
+
+    if [[ "$dev_name" =~ /dev/vda* ]]; then
+        echo -e "\e[32m VG device is $dev_name so we continue ...\e[0m ";
+    else
+        echo -e "\e[31m VG device is $dev_name so i'm fixing that to .\e[0m " ;
+        # sed -i 's|$dev_name|/dev/vda3|g' vg_sys-backup.vg
+
+    fi
+    
+
+
+    if [[ "$dev_name" =~ /dev/vda* ]]; then
+        echo Then becouse $dev_name ;
+        cat $lvm | grep -m 1 -B 1 "device" | grep id | cut -d '"' -f 2 ;
+        cat $lvm | grep -m 1 "device" | cut -d '"' -f 2 ;
+        pvcreate -u $dev_uuid $dev_name --restorefile $lvm ;
+        echo file to restore $lvm and the vg name is $vg_name ;
+        vgcfgrestore -f $lvm $vg_name ;
+        vgchange -ay $vg_name ;
+    else
+        echo -e "\e[32m Doing nothing becouse $dev_name \e[0m ";
+    fi
+done
+
+for vg in $(ls -h vg_sys-*.gz); do 
+    echo -e "\e[32m Processing \e[31m $vg \e[32m into \e[31m $( ls -h $vg* | cut -d '.' -f 1) \e[32m \e[0m "; 
+    gunzip -c $vg | partclone.ext4 -s - -O $( ls -h $vg* | cut -d '.' -f 1) -W -r -F ;
+done
+
+gunzip -c vda3.vfat-ptcl-img.gz | partclone.vfat -s - -O /dev/vda3 -W -r -F
 
 
 
