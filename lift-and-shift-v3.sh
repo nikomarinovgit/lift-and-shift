@@ -1,17 +1,12 @@
 #!/bin/bash
-
 echo -e "\e[32mWiping /dev/vda with force\e[m";
 vgchange -an ;
 vgremove -f $(vgdisplay -c | cut -d: -f1)
 wipefs -a /dev/vda -f ;
-# lsblk;
-# read -p "Press Enter to continue..." ;
 # cnvt-ocs-dev -b -d /home/partimag to_restore sda vda
 sfdisk /dev/vda < vda-pt.sf
 echo -e "\e[32mFirst we do partitions:\e[0m"
 parts=$(cat parts | tr ' ' '\n' |  grep -E "^sd.{1}$" )
-# lsblk;
-# read -p "Press Enter to continue..." ;
 
 for p in $parts; do
     next_vda=$(($(lsblk -l /dev/vda | grep -v 'lvm' | wc -l) - 1 ));
@@ -19,16 +14,12 @@ for p in $parts; do
     echo -e "\e[32mCreating $p as vda$next_vda with size $next_vda_size\e[m";
     sed -i "s|$p|vda$next_vda|g" blkdev.list ;
     sed -i "s|$p|vda$next_vda|g" parts ;
-    # echo -e "n\ne\n\n\n+$next_vda_size\nw" | sudo fdisk /dev/vda ;
-    echo -e ",,,\n,,,$next_vda_size\n" | sudo sfdisk /dev/vda
+    echo -e "n\ne\n\n\n+$next_vda_size\nw" | sudo fdisk /dev/vda ;
     # echo -e "n\ne\n\n\n+50G\nw" | sudo fdisk /dev/sdX
 done
 
 existing_vda=$(lsblk -l | tr ' ' '\n' | grep -E "^vda.{1}$" | cut -d ' ' -f 1)
 echo -e "\e[32mNow to populate partitions:\e[0m" ;
-# echo $existing_vda ;
-# read -p "Press Enter to continue..." ;
-
 for vdas in $existing_vda; do
     echo Doing $vdas;
     # read -p "Press Enter to continue..." ;
@@ -40,10 +31,7 @@ for vdas in $existing_vda; do
     fi
 done
 
-
-
 echo -e "\e[32mNow to populate LVMs:\e[0m"
-# lsblk;
 vgchange -an
 vgremove -f $(vgdisplay -c | cut -d: -f1)
 
