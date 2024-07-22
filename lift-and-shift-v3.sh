@@ -1,25 +1,47 @@
 #!/bin/bash
-echo -e "\e[32mWiping /dev/vda with force\e[m";
+
+dir_to_restore="to_restore" ;
+
+echo -e "\e[32mWiping /dev/vda with force\e[m" ;
 vgchange -an ;
-vgremove -f $(vgdisplay -c | cut -d: -f1)
+vgremove -f $(vgdisplay -c | cut -d: -f1) ;
 wipefs -a /dev/vda -f ;
+# lsblk;
+# read -p "Press Enter to continue..." ;
 # cnvt-ocs-dev -b -d /home/partimag to_restore sda vda
+
+# echo -e "\e[32mRestoring sda to vda\e[m" ;
+
+[ -e "sda-pt.sf" ] && echo -e "\e[32mChanging volume in Clonezilla backup from sda to vda\e[m" ; cnvt-ocs-dev -b -d /home/partimag $dir_to_restore sda vda || echo -e "\e[32mClonezilla backup isvda so we continue...\e[m" ;
+
+echo -e "\e[32mRestoring vda partitions from vda-pt.sf\e[m"
+
 sfdisk /dev/vda < vda-pt.sf
 echo -e "\e[32mFirst we do partitions:\e[0m"
 parts=$(cat parts | tr ' ' '\n' |  grep -E "^sd.{1}$" )
+# lsblk;
+# read -p "Press Enter to continue..." ;
+vda_number=$(($(lsblk -l /dev/vda | grep -v 'lvm' | wc -l) - 1 ))
+echo -e "n\ne\n\n\n\nw" | sudo fdisk /dev/vda ;
 
 for p in $parts; do
     next_vda=$(($(lsblk -l /dev/vda | grep -v 'lvm' | wc -l) - 1 ));
     next_vda_size=$(cat blkdev.list | grep "$p" | tr -s ' ' | uniq | head -n 1 | cut -d ' ' -f 3) ;
     echo -e "\e[32mCreating $p as vda$next_vda with size $next_vda_size\e[m";
+    [ -e "blkdev.list" ] && echo -e "\e[32mBackup exists blkdev.list.bak\e[0m " || echo -e "\e[31mBackup does not exist. Creating...\e[0m" ; cp blkdev.list blkdev.list.bak ;
     sed -i "s|$p|vda$next_vda|g" blkdev.list ;
+    [ -e "parts" ] && echo -e "\e[32mBackup exists parts.bak\e[0m " || echo -e "\e[31mBackup does not exist. Creating...\e[0m" ; cp parts parts.bak ;
     sed -i "s|$p|vda$next_vda|g" parts ;
-    echo -e "n\ne\n\n\n+$next_vda_size\nw" | sudo fdisk /dev/vda ;
+    echo -e "n\ne\n\n+$next_vda_size\nw" | sudo fdisk /dev/vda ;
+    # echo -e ",,,\n,,,$next_vda_size\n" | sudo sfdisk /dev/vda
     # echo -e "n\ne\n\n\n+50G\nw" | sudo fdisk /dev/sdX
 done
 
 existing_vda=$(lsblk -l | tr ' ' '\n' | grep -E "^vda.{1}$" | cut -d ' ' -f 1)
 echo -e "\e[32mNow to populate partitions:\e[0m" ;
+# echo $existing_vda ;
+# read -p "Press Enter to continue..." ;
+
 for vdas in $existing_vda; do
     echo Doing $vdas;
     # read -p "Press Enter to continue..." ;
@@ -31,9 +53,12 @@ for vdas in $existing_vda; do
     fi
 done
 
+
+
 echo -e "\e[32mNow to populate LVMs:\e[0m"
-vgchange -an
-vgremove -f $(vgdisplay -c | cut -d: -f1)
+# lsblk;
+# vgchange -an
+# vgremove -f $(vgdisplay -c | cut -d: -f1)
 
 for lvm in $(ls lvm_vg_*.conf); do
     dev_uuid=$(cat $lvm | grep -m 1 -B 1 "device" | grep id | cut -d '"' -f 2) ;
@@ -59,16 +84,15 @@ for lvm in $(ls lvm_vg_*.conf); do
     fi
 
 
-    pvcreate -u $dev_uuid $dev_name --restorefile $lvm -ff;
-    vgcfgrestore -f $lvm $vg_name --force ;
-    vgchange -ay $vg_name ;
+    # pvcreate -u $dev_uuid $dev_name --restorefile $lvm -ff ;
+    # vgcfgrestore -f $lvm $vg_name --force ;
+    # vgchange -ay $vg_name ;
 
 
     # for vg in $(ls -h $vg_name-*.gz); do
     #     echo -e "\e[32m Processing \e[31m $vg \e[32m into \e[31m $( ls -h $vg* | cut -d '.' -f 1) \e[32m \e[0m ";
     #     gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O $( ls -h $vg* | cut -d '.' -f 1) -W -r -F ;
     # done
-
 
 done
 

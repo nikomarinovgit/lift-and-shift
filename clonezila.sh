@@ -4,8 +4,8 @@
 # chmod 600 /root/.passwd-s3fs
 # s3fs nm-bucket:/ /home/partimag -o url=https://sos-at-vie-1.exo.io -o  passwd_file=/root/.passwd-s3fs
 
-echo 'root:pptpd' | sudo chpasswd
-echo 'user:pptpd' | sudo chpasswd
+echo 'root:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd
+echo 'user:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd
 systemctl start ssh
 
 
