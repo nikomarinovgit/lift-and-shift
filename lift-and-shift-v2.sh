@@ -4,11 +4,26 @@
 exo c i add nm-test-vm02 --disk-size 100 --instance-type Extra-Large  --template "Linux Ubuntu 24.04 LTS 64-bit" --security-group nm-sg -z AT-VIE-1 -Q
 exo c bs a " nm-rescue-10GB" nm-test-vm02 -z at-vie-1
 echo y | exo c bs d " nm-rescue-10GB" -z at-vie-1
-
+# Create and attache block starage to restore every coresponding disk from source VM.
+exo c bs add nm-bs-vm02-60GB --size 60 -z at-vie-1 -Q
+exo c bs add nm-bs-vm02-110GB --size 110 -z at-vie-1 -Q
+exo c bs a nm-bs-vm02-60GB nm-test-vm02 -z at-vie-1
+exo c bs a nm-bs-vm02-110GB nm-test-vm02 -z at-vie-1
+# Create TMP block storage bigger than all the gunziped backups.
+exo c bs add nm-bs-tmp-160GB --size 160 -z at-vie-1 -Q
+exo c bs a nm-bs-tmp-160GB nm-test-vm02 -z at-vie-1 -Q
+echo y | exo c bs d nm-bs-tmp-160GB -z at-vie-1
 echo y | exo c i stop nm-test-vm02 -Q
 
 # Resize the VM init disk to size as big as all the volumes in the source VM. (Web UI)
 echo y | exo c i start --rescue-profile=netboot-efi nm-test-vm02 -Q
+
+# Exo maybe can fix the path in the rescue console...
+# iPXE shell
+# >dhcp
+# >show net0/ip
+# 185.150.10.120
+sanboot https://boot.netboot.xyz/ipxe/netboot.xyz.iso
 
 # Enter in clonezilla bash shell.
 # clonezilla.sh to attache the s3-bucket (( sudo passwd root, sudo passwd... ) & maybe ssh user@REAL-IP)
