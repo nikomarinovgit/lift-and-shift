@@ -17,7 +17,7 @@ echo -e "\e[32mNow to populate partitions:\n$(lsblk -l | tr ' ' '\n' | grep -E "
 
 for vdas in $(lsblk -l | tr ' ' '\n' | grep -E "^vda.{1}$" | cut -d ' ' -f 1); do
     if [ -f $vdas*.gz* ]; then
-        echo -e "\e[32mDoing $vdas becouse $(ls $vdas*.gz*) exist\e[0m" ;
+        echo -e "\e[32mDoing $vdas with existing $(ls $vdas*.gz*) exist\e[0m" ;
         gunzip -c $(ls $vdas*) | partclone.$(ls $vdas* | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/$vdas -r -F ;
     else
         echo -e "\e[33m$vdas no file. Must be LVM. See you later aligator! \e[0m";
@@ -27,7 +27,6 @@ done
 echo -e "\e[32mNow to populate LVMs:\e[0m"; lsblk ;
 
 for lvm in $(ls lvm_vg_*.conf); do
-    echo $lvm ;
     [ -e "$lvm.bak" ] && echo -e "\e[32m$lvm.bak exists\e[0m " || ( echo -e "\e[31m$lvm.bak does not exist. Creating it...\e[0m" ; cp $lvm $lvm.bak ; )
     dev_uuid=$(cat $lvm.bak | grep -m 1 -B 1 "device" | grep id | cut -d '"' -f 2) ;
     dev_name=$(cat $lvm.bak | grep -m 1 "device" | cut -d '"' -f 2) ;
