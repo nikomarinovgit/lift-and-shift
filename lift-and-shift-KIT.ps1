@@ -20,7 +20,8 @@
 
 # Linux vlhydak004.at.inside 3.10.0-1160.119.1.el7.x86_64 #1 SMP Tue May 14 11:55:25 EDT 2024 x86_64 x86_64 x86_64 GNU/Linux
 # 10.2.232.5	IPv4	255.255.255.0	ens224	vlhydak004	
-# 10.247.166.46	IPv4	255.255.255.0	ens192	vlhydak004
+# 10.247.166.46	IPv4	255.255.255.0	ens192	vlhydak004  3a:eh
+
 
 # vlhydak005
 # CPU: 8
