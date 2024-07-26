@@ -1,3 +1,14 @@
+
+Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p
+
+USB: GW: 192.168.205.162 route add 194.182.174.52 MASK 255.255.255.255 192.168.205.162 
+BT: GW: 192.168.44.1 route add 194.182.174.52 MASK 255.255.255.255 192.168.44.1
+
+
+
+
+
+
 /usr/sbin/ocs-sr -e1 auto -e2 -c {confirmation} -t -r -k1 -scr -icds -p choose restoreparts to_restore sda1 sda2
 
 -f, --from-part-in-img PARTITION Restore the partition from image. This is especially for "restoreparts" to restore the image of partition (only works for one) to different partition, e.g. sda1 of image to sdb6.
