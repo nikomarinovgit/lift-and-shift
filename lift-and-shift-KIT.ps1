@@ -53,21 +53,21 @@
 #
 #       my work
 #
+echo y | exo c i rm vlhydak003 -f -z AT-VIE-1
+echo y | exo c i rm vlhydak004 -f -z AT-VIE-1
+echo y | exo c i rm vlhydak005 -f -z AT-VIE-1
+
 echo y | exo c privnet delete nm-ls-10.2.232.0-ens224 -Q
 echo y | exo c privnet delete nm-ls-10.247.166.0-ens192 -Q
 
 exo c privnet add nm-ls-10.2.232.0-ens224 --description "nm privnet 10.2.232.0/24 for lift&shift VMs from vSphere. vlhydak003 - 10.2.232.44/24 - ens224 ; vlhydak004 - 10.2.232.5/24 - ens224 ; vlhydak005 - 10.2.232.6/24 - ens224" -z AT-VIE-1 -Q
 exo c privnet add nm-ls-10.247.166.0-ens192 --description "nm privnet 10.247.166.0/24 for lift&shift VMs from vSphere. vlhydak003 - 10.247.166.45/24 - ens192 ; vlhydak004 - 10.247.166.46/24 - ens192 ; vlhydak005 - 10.247.166.47/24 - ens192" -z AT-VIE-1 -Q
 
-echo y | exo c i delete vlhydak003 -z AT-VIE-1 -Q
-echo y | exo c i delete vlhydak004 -z AT-VIE-1 -Q
-echo y | exo c i delete vlhydak005 -z AT-VIE-1 -Q
-
-exo c i add vlhydak003 --disk-size 10 --instance-type Extra-Large  --private-network nm-ls-10.2.232.0-ens224 --private-network nm-ls-10.247.166.0-ens192 --template "Linux Ubuntu 24.04 LTS 64-bit" -z AT-VIE-1 -Q
-exo c i add vlhydak004 --disk-size 10 --instance-type Extra-Large  --private-network nm-ls-10.2.232.0-ens224 --private-network nm-ls-10.247.166.0-ens192 --template "Linux Ubuntu 24.04 LTS 64-bit" -z AT-VIE-1 -Q
-exo c i add vlhydak005 --disk-size 10 --instance-type Extra-Large  --private-network nm-ls-10.2.232.0-ens224 --private-network nm-ls-10.247.166.0-ens192 --template "Linux Ubuntu 24.04 LTS 64-bit" -z AT-VIE-1 -Q
+exo c i add vlhydak003 --disk-size 100 --instance-type Extra-Large  --private-network nm-ls-10.2.232.0-ens224 --private-network nm-ls-10.247.166.0-ens192 --template "Linux Ubuntu 24.04 LTS 64-bit" -z AT-VIE-1 -Q
+exo c i add vlhydak004 --disk-size 100 --instance-type Extra-Large  --private-network nm-ls-10.2.232.0-ens224 --private-network nm-ls-10.247.166.0-ens192 --template "Linux Ubuntu 24.04 LTS 64-bit" -z AT-VIE-1 -Q
+exo c i add vlhydak005 --disk-size 100 --instance-type Extra-Large  --private-network nm-ls-10.2.232.0-ens224 --private-network nm-ls-10.247.166.0-ens192 --template "Linux Ubuntu 24.04 LTS 64-bit" -z AT-VIE-1 -Q
 
 
-
+echo y | exo c i start --rescue-profile=netboot-efi nm-test-vm02 -Q
 
 
