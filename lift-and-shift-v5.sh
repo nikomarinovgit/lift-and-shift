@@ -2,20 +2,21 @@
 dir_to_restore="to_restore" ;
 echo -e "\e[32mWiping /dev/vda with force\e[m" ; vgchange -an ; vgremove -f $(vgdisplay -c | cut -d: -f1) ; wipefs -a /dev/vda -f ; lsblk; echo -e "\e[32mvda should be clean here\e[m" ; rm *.tmp *.bak ;
 [ -e "vda-pt.sf" ] && echo -e "\e[32mClonezilla backup is vda so we continue...\e[m" || ( echo -e "\e[32mChanging volume in Clonezilla backup from sda to vda\e[m" ; cnvt-ocs-dev -b -d /home/partimag $dir_to_restore sda vda ; )
-[ -e "blkdev.list.tmp" ] && echo -e "\e[32mblkdev.list.tmp exists.\e[0m " || ( echo -e "\e[31mtep does not exist. Creating it...\e[0m" ; cp blkdev.list blkdev.list.tmp ; )
+[ -e "blkdev.list.tmp" ] && echo -e "\e[32mblkdev.list.tmp exists.\e[0m " || ( echo -e "\e[31mblkdev.list.tmp does not exist. Creating it...\e[0m" ; cp blkdev.list blkdev.list.tmp ; )
 [ -e "parts.tmp" ] && echo -e "\e[32mparts.tmp exists\e[0m " || ( echo -e "\e[31mparts.tmp does not exist. Creating it ...\e[0m" ; cp parts parts.tmp ; )
 echo -e "\e[32mRestoring vda partitions from vda-pt.sf\e[m" ; 
 
 dd if=/dev/zero of=/dev/vda bs=512 seek=209714176 count=1024 ;
 parted -s /dev/vda mklabel msdos ;
-LC_ALL=C sfdisk --force /dev/vda < /home/partimag/to_restore/vda-pt.sf ;
+sfdisk --force /dev/vda < /home/partimag/to_restore/vda-pt.sf ;
 ocs-restore-mbr --ocsroot /home/partimag  to_restore vda ;
-dd if=/home/partimag/to_restore/vda-hidden-data-after-mbr of=/dev/vda seek=1 bs=512 count=2047 ;
+dd if=/home/partimag/$dir_to_restore/vda-hidden-data-after-mbr of=/dev/vda seek=1 bs=512 count=2047 ;
 
 lsblk ; echo -e "\e[32mvda should be partitioned vith vda-pt.sf\e[m" ;
 
 
-echo -e "\e[32mCreate partition:\e[0m" ; echo -e "n\np\n\n\nw" | sudo fdisk /dev/vda ; lsblk;
+echo -e "\e[32mCreate partition:\e[0m" ; echo -e "n\np\n\n\nw" | sudo fdisk /dev/vda ; 
+lsblk;
 
 for p in $(cat parts | tr ' ' '\n' |  grep -E "^sd.{1}$" ); do
     sed -i "s|$p|vda$(($(lsblk -l /dev/vda | grep -v 'lvm' | wc -l) -2 ))|g" blkdev.list.tmp ;
@@ -25,9 +26,10 @@ done
 for vdas in $(lsblk -l | tr ' ' '\n' | grep -E "^vda.{1}$" | cut -d ' ' -f 1); do
     if [ -f $vdas*.gz* ]; then
         echo -e "\e[32mDoing $vdas with existing $(ls $vdas*.gz*) exist\e[0m" ;
+        # ocs-resize-part  --batch /dev/$vdas ;
         # gunzip -c $(ls $vdas*) | partclone.$(ls $vdas* | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/$vdas -r -F ;
-        ocs-resize-part  --batch /dev/$vdas ;
-        pigz -d -c $(ls $vdas*) | LC_ALL=C partclone.$(ls $vdas* | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760 -s - -r -o /dev/$vdas ;
+        gunzip -c $(ls $vdas*) | partclone.restore -d3 -s - -O /dev/$vdas ;
+        # pigz -d -c $(ls $vdas*) | LC_ALL=C partclone.$(ls $vdas* | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760 -s - -r -o /dev/$vdas ;
     else
         echo -e "\e[33m$vdas no file. Must be LVM. See you later aligator! \e[0m";
     fi
@@ -51,10 +53,15 @@ for lvm in $(ls lvm_vg_*.conf); do
     fi
 
     echo -e "\e[97mpvcreate -u $dev_uuid /dev/$new_dev_name --restorefile $lvm.bak -f \e[0m ";
-
     pvcreate -u $dev_uuid /dev/$new_dev_name --restorefile $lvm.bak -f ;
-    pvresize /dev/$new_dev_name ;
+
+    echo -e "\e[97mvgcfgrestore -f $lvm.bak $vg_name --force \e[0m ";
     vgcfgrestore -f $lvm.bak $vg_name --force ;
+
+    echo -e "\e[97mpvresize /dev/$new_dev_name \e[0m ";
+    pvresize /dev/$new_dev_name ;
+
+    echo -e "\e[97mvgchange -ay $vg_name ; \e[0m ";
     vgchange -ay $vg_name ;
     pvscan ; vgscan ; lvscan ;
 
@@ -67,9 +74,13 @@ for lvm in $(ls lvm_vg_*.conf); do
         # resize2fs -p -f $( ls -h $vg* | cut -d '.' -f 1) ;
         # gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O $( ls -h $vg* | cut -d '.' -f 1) -W -r -F ;
 
-        # echo -e "\e[97m gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O $( ls -h $vg* | cut -d '.' -f 1) -r -F \e[0m"  ;
-        # gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O $( ls -h $vg* | cut -d '.' -f 1) -r -F ;
-        echo -e "\e[97m pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) \e[0m" ;
-        pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) ;
+        echo -e "\e[97m gunzip -c $vg | partclone.restore -d3 -s - -O /dev/$( ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 1)/$(ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 2) ; \e[0m"  ;
+        gunzip -c $vg | partclone.restore -d3 -s - -O /dev/$( ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 1)/$(ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 2) ;
+        
+        # gunzip -c $vg | partclone.restore -d3 -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) ;
+        # echo -e "\e[97m gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -r -F \e[0m"  ;
+        # gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -r -F ;
+        # echo -e "\e[97m pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) \e[0m" ;
+        # pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) ;
     done
 done
