@@ -74,13 +74,51 @@ for lvm in $(ls lvm_vg_*.conf); do
         # resize2fs -p -f $( ls -h $vg* | cut -d '.' -f 1) ;
         # gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O $( ls -h $vg* | cut -d '.' -f 1) -W -r -F ;
 
-        echo -e "\e[97m gunzip -c $vg | partclone.restore -d3 -s - -O /dev/$( ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 1)/$(ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 2) ; \e[0m"  ;
-        gunzip -c $vg | partclone.restore -d3 -s - -O /dev/$( ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 1)/$(ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 2) ;
+        # echo -e "\e[97m gunzip -c $vg | partclone.restore -d3 -s - -O /dev/$( ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 1)/$(ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 2) -W -F -C; \e[0m"  ;
+        # gunzip -c $vg | partclone.restore -d3 -s - -O /dev/$( ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 1)/$(ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 2) -W -F -C;
+        
+        # gunzip -c $vg | partclone.info -L tmp.info -s - ;
+        # echo "$(($(cat tmp.info | grep "Device size" | cut -d '=' -f 2 | cut -d ' ' -f 2) * 4096 / 1024 / 1024 / 1024))" ;
+        # # lvs  --units b $vg_name/$(echo $vg | cut -d '.' -f 1 | cut -d '-' -f 2) ;
+        # echo "$(($(lvs -o lv_size --units b $vg_name/$(echo $vg | cut -d '.' -f 1 | cut -d '-' -f 2) | grep -v 'LSize' | cut -d 'B' -f 1 ) / 1024 / 1024 / 1024))"; 
+
+        # rm tmp.info ;
+        
+        
+        # gunzip -c $vg | partclone.restore -d3 -s - -O /dev/$( ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 1)/$(ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 2) -W -F;
         
         # gunzip -c $vg | partclone.restore -d3 -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) ;
-        # echo -e "\e[97m gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -r -F \e[0m"  ;
-        # gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -r -F ;
+        echo -e "\e[97m gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -r -F  \e[0m"  ;
+        gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -W -r -F ;
         # echo -e "\e[97m pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) \e[0m" ;
         # pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) ;
     done
 done
+
+
+mkdir /mnt/root
+mount /dev/mapper/vg_sys-root /mnt/root/
+mount /dev/vda1 /mnt/root/boot/
+chroot /mnt/root
+
+version="3.10.0-1160.119.1.el7.x86_64"
+# # Dracut virtio_scsi, virtio_blk... modules inject in initramfs 
+# # Backup the initramfs file you want to pach.
+cp /boot/initramfs-$version.img /boot/initramfs-$version.img.bak
+
+# # Make sure the modules are missing in that initramfs.
+lsinitrd /boot/initramfs-$version.img | grep -i virtio
+
+lsinitrd /boot/initramfs-0-rescue-* | grep -i virtio
+
+# # Create virtio.conf file for dracut.
+echo 'add_drivers+=" virtio_scsi virtio_blk "' > /etc/dracut.conf.d/virtio.conf 
+
+mkdir /var/tmp
+
+# # Some add dracut drivers: "virtio_balloon virtio_ring virtio_input virtio_pci virtio virtio_net"
+# # Inject the modules.
+dracut -f --add-drivers "virtio_scsi virtio_blk" /boot/initramfs-$version.img $version 
+
+# # Check the module is there.
+lsinitrd /boot/initramfs-$version.img | grep virtio
