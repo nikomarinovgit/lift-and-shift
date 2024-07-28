@@ -1,6 +1,6 @@
 #!/bin/bash
 dir_to_restore="to_restore" ;
-echo -e "\e[32mWiping /dev/vda with force\e[m" ; vgchange -an ; vgremove -f $(vgdisplay -c | cut -d: -f1) ; wipefs -a /dev/vda -f ; lsblk; echo -e "\e[32mvda should be clean here\e[m" ; rm *.tmp *.bak ;
+echo -e "\e[32mWiping /dev/vda with force\e[m" ; umount /mnt/root/boot/ ; umount /mnt/root/ ; vgchange -an ; vgremove -f $(vgdisplay -c | cut -d: -f1) ; wipefs -a /dev/vda -f ; lsblk; echo -e "\e[32mvda should be clean here\e[m" ; rm *.tmp *.bak ;
 [ -e "vda-pt.sf" ] && echo -e "\e[32mClonezilla backup is vda so we continue...\e[m" || ( echo -e "\e[32mChanging volume in Clonezilla backup from sda to vda\e[m" ; cnvt-ocs-dev -b -d /home/partimag $dir_to_restore sda vda ; )
 [ -e "blkdev.list.tmp" ] && echo -e "\e[32mblkdev.list.tmp exists.\e[0m " || ( echo -e "\e[31mblkdev.list.tmp does not exist. Creating it...\e[0m" ; cp blkdev.list blkdev.list.tmp ; )
 [ -e "parts.tmp" ] && echo -e "\e[32mparts.tmp exists\e[0m " || ( echo -e "\e[31mparts.tmp does not exist. Creating it ...\e[0m" ; cp parts parts.tmp ; )
@@ -88,7 +88,8 @@ for lvm in $(ls lvm_vg_*.conf); do
         # gunzip -c $vg | partclone.restore -d3 -s - -O /dev/$( ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 1)/$(ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 2) -W -F;
         
         # gunzip -c $vg | partclone.restore -d3 -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) ;
-        echo -e "\e[97m gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -r -F  \e[0m"  ;
+        echo -e "\e[97m gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -W -r -F  \e[0m"  ;
+        dd if=/dev/zero of=/dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) bs=1025M status=progress ;
         gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -W -r -F ;
         # echo -e "\e[97m pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) \e[0m" ;
         # pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) ;
@@ -96,29 +97,35 @@ for lvm in $(ls lvm_vg_*.conf); do
 done
 
 
-mkdir /mnt/root
-mount /dev/mapper/vg_sys-root /mnt/root/
-mount /dev/vda1 /mnt/root/boot/
-chroot /mnt/root
 
-version="3.10.0-1160.119.1.el7.x86_64"
-# # Dracut virtio_scsi, virtio_blk... modules inject in initramfs 
-# # Backup the initramfs file you want to pach.
-cp /boot/initramfs-$version.img /boot/initramfs-$version.img.bak
+[ -e "/mnt/root" ] && echo -e "\e[32mExists\e[m" || ( echo -e "\e[32mDon't exist\e[0m" ; mkdir /mnt/root ; ) ;
 
-# # Make sure the modules are missing in that initramfs.
-lsinitrd /boot/initramfs-$version.img | grep -i virtio
+if mount | grep "^/dev/mapper/vg_sys-root on /mnt/root*" ; then
+  echo "/dev/mapper/vg_sys-root is mounted on /mnt/root"
+else
+  echo "/dev/mapper/vg_sys-root is not mounted on /mnt/root"
+  mount /dev/mapper/vg_sys-root /mnt/root/
+fi
 
-lsinitrd /boot/initramfs-0-rescue-* | grep -i virtio
+if mount | grep "^/dev/vda1 on /mnt/root/boot*" ; then
+  echo "/dev/vda1 is mounted on /mnt/root/boot/"
+else
+  echo "/dev/vda1 is not mounted on /mnt/root/boot" ;
+  mount /dev/vda1 /mnt/root/boot/ ;
+fi
 
-# # Create virtio.conf file for dracut.
-echo 'add_drivers+=" virtio_scsi virtio_blk "' > /etc/dracut.conf.d/virtio.conf 
+cat << EOF | chroot /mnt/root /bin/bash
+version=\$(grubby --default-kernel 2>/dev/null | cut -c15- ) ;
+echo grub load as default kernel version - \$version ;
 
-mkdir /var/tmp
+[ -e /boot/initramfs-\$version.img.bak ] && echo Backup exists || ( echo Backup don\'t exist ; cp /boot/initramfs-\$version.img /boot/initramfs-\$version.img.bak ; ) ;
+[ -e /etc/dracut.conf.d/virtio.conf ] && echo virtio.conf exists || ( echo virtio.conf don\'t exist ; echo 'add_drivers+=" virtio_scsi virtio_blk "' > /etc/dracut.conf.d/virtio.conf ;) ;
+[ -e /var/tmp ] && echo /var/tmp exists || ( echo /var/tmp don\'t exist ; mkdir /var/tmp ;) ;
 
-# # Some add dracut drivers: "virtio_balloon virtio_ring virtio_input virtio_pci virtio virtio_net"
-# # Inject the modules.
-dracut -f --add-drivers "virtio_scsi virtio_blk" /boot/initramfs-$version.img $version 
+if lsinitrd /boot/initramfs-\$version.img | grep -i virtio ; then 
+echo Modules virtio_scsi virtio_blk found in kernel \$version ; 
+else 
+dracut -f --add-drivers "virtio_scsi virtio_blk" /boot/initramfs-\$version.img \$version ;
+fi
 
-# # Check the module is there.
-lsinitrd /boot/initramfs-$version.img | grep virtio
+EOF
