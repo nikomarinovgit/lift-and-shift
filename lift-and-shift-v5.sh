@@ -1,5 +1,5 @@
 #!/bin/bash
-dir_to_restore="to_restore" ;
+dir_to_restore="to_restore_003" ;
 echo -e "\e[32mWiping /dev/vda with force\e[m" ; umount /mnt/root/boot/ ; umount /mnt/root/ ; vgchange -an ; vgremove -f $(vgdisplay -c | cut -d: -f1) ; wipefs -a /dev/vda -f ; lsblk; echo -e "\e[32mvda should be clean here\e[m" ; rm *.tmp *.bak ;
 [ -e "vda-pt.sf" ] && echo -e "\e[32mClonezilla backup is vda so we continue...\e[m" || ( echo -e "\e[32mChanging volume in Clonezilla backup from sda to vda\e[m" ; cnvt-ocs-dev -b -d /home/partimag $dir_to_restore sda vda ; )
 [ -e "blkdev.list.tmp" ] && echo -e "\e[32mblkdev.list.tmp exists.\e[0m " || ( echo -e "\e[31mblkdev.list.tmp does not exist. Creating it...\e[0m" ; cp blkdev.list blkdev.list.tmp ; )
@@ -8,9 +8,9 @@ echo -e "\e[32mRestoring vda partitions from vda-pt.sf\e[m" ;
 
 dd if=/dev/zero of=/dev/vda bs=512 seek=209714176 count=1024 ;
 parted -s /dev/vda mklabel msdos ;
-sfdisk --force /dev/vda < /home/partimag/to_restore/vda-pt.sf ;
-ocs-restore-mbr --ocsroot /home/partimag  to_restore vda ;
-dd if=/home/partimag/$dir_to_restore/vda-hidden-data-after-mbr of=/dev/vda seek=1 bs=512 count=2047 ;
+sfdisk --force /dev/vda < vda-pt.sf ;
+ocs-restore-mbr --ocsroot /home/partimag $dir_to_restore vda ;
+dd if=vda-hidden-data-after-mbr of=/dev/vda seek=1 bs=512 count=2047 ;
 
 lsblk ; echo -e "\e[32mvda should be partitioned vith vda-pt.sf\e[m" ;
 
@@ -89,7 +89,7 @@ for lvm in $(ls lvm_vg_*.conf); do
         
         # gunzip -c $vg | partclone.restore -d3 -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) ;
         echo -e "\e[97m gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -W -r -F  \e[0m"  ;
-        dd if=/dev/zero of=/dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) bs=1025M status=progress ;
+        # dd if=/dev/zero of=/dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) bs=1025M status=progress ;
         gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -W -r -F ;
         # echo -e "\e[97m pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) \e[0m" ;
         # pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) ;
@@ -127,5 +127,7 @@ echo Modules virtio_scsi virtio_blk found in kernel \$version ;
 else 
 dracut -f --add-drivers "virtio_scsi virtio_blk" /boot/initramfs-\$version.img \$version ;
 fi
+
+sed -i 's/^root:x:/root::/' /etc/passwd
 
 EOF

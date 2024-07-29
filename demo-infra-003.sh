@@ -1,4 +1,4 @@
-Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p
+#!/bin/bash
 
 exo c bs d " nm-rescue-10GB" vlhydak003 -z at-vie-1
 
@@ -11,21 +11,3 @@ exo c bs a " nm-rescue-10GB" vlhydak003 -z at-vie-1
 exo c i stop vlhydak003
 
 exo c i start --rescue-profile=netboot vlhydak003
-
-
-
-
-
-
-
-
-
-
-
-USB:
-GW: 192.168.205.162
-route add 194.182.174.52 MASK 255.255.255.255 192.168.205.162
-BT:
-GW: 192.168.44.1
-route add 194.182.174.52 MASK 255.255.255.255 192.168.44.1
-
