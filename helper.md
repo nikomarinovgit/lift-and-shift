@@ -8,9 +8,8 @@ exo c bs a " nm-rescue-10GB" vlhydak003 -z at-vie-1
 exo c i stop vlhydak003
 exo c i start --rescue-profile=netboot vlhydak003
 
-
-
-
+exo c i stop vlhydak003 -f -z AT-VIE-1
+exo c i start vlhydak003 -f -z AT-VIE-1
 
 
 
@@ -23,5 +22,7 @@ BT:
 GW: 192.168.44.1
 route add 194.182.174.52 MASK 255.255.255.255 192.168.44.1
 
-
 route add 185.150.10.168 MASK 255.255.255.255 192.168.44.1
+
+
+
