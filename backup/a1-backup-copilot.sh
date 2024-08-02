@@ -14,8 +14,11 @@ echo "A1 clonezilla"
 echo $(date)
 
 # Change passwords
-echo 'root:pptpd' | sudo chpasswd
-echo 'user:pptpd' | sudo chpasswd
+echo 'root:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd
+echo 'user:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd
+
+# echo 'root:pptpd' | sudo chpasswd
+# echo 'user:pptpd' | sudo chpasswd
 
 # Allow root login via SSH if not already allowed
 if ! grep -q 'PermitRootLogin yes' /etc/ssh/sshd_config; then
@@ -84,8 +87,8 @@ for i in $try_me_if; do
         break
     else
         echo -e "\e[32mcurl test failed to $BUCKET_URL, next please...\e[0m"
-        ip a delete $n_ip/$n_mask dev $i 2> /dev/null
-        ip r delete default 2> /dev/null
+        ip a delete $n_ip/$n_mask dev $i 2> /dev/null || true
+        ip r delete default 2> /dev/null || true
     fi
 done
 
