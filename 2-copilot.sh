@@ -16,8 +16,8 @@ echo "A1 clonezilla"
 echo $(date)
 
 # Change passwords
-echo 'root:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd
-echo 'user:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd
+echo 'root:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd 2> /dev/null || true
+echo 'user:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd 2> /dev/null || true
 # echo 'root:pptpd' | sudo chpasswd
 # echo 'user:pptpd' | sudo chpasswd
 
@@ -65,7 +65,17 @@ configure_network_interfaces() {
   local n_gw=$3
   local n_dns=$4
   local bucket_url=$5
-  local hostname=$6
+  local n_hostname=$6
+
+  # Set the hostname
+  echo -e "\e[32mSetting hostname to $n_hostname\e[0m"
+  hostnamectl set-hostname $n_hostname
+
+  # Add hostname to /etc/hosts
+  if ! grep -q "$n_hostname" /etc/hosts; then
+    echo -e "\e[32mAdding $n_hostname to /etc/hosts\e[0m"
+    echo "127.0.0.1 $n_hostname" >> /etc/hosts
+  fi
 
   try_me_if=$(ls /sys/class/net/ | grep -iP "eth.*")
 
@@ -87,13 +97,36 @@ configure_network_interfaces() {
       fi
   done
 
-  # Set the hostname
-  echo -e "\e[32mSetting hostname to $hostname\e[0m"
-  hostnamectl set-hostname $hostname
+}
+
+# Function to check and mount S3 bucket
+check_and_mount_s3_bucket() {
+  local bucket_url=$1
+
+  # Unmount /mnt
+  umount /mnt 2> /dev/null || true
+
+  # Check if /root/.passwd-s3fs exists
+  if [ ! -f /root/.passwd-s3fs ]; then
+    echo -e "\e[31mError: /root/.passwd-s3fs file does not exist. Please create it with the necessary credentials.\e[0m"
+    exit 1
+  fi
+
+  # Check if S3 bucket is mounted
+  if df -H | grep -q s3fs; then
+      echo -e "\e[32mS3 bucket is here.\e[0m"
+  else
+      echo -e "\e[32mS3 bucket is missing. Trying to attach...\e[0m"
+      s3fs clonezilla-test:/ /home/partimag -o use_path_request_style -o url=https://$bucket_url -o passwd_file=/root/.passwd-s3fs -o del_cache -o no_check_certificate -d
+      df -H | grep s3fs
+  fi
+
+  # Run Clonezilla
+  # /usr/sbin/ocs-sr -q2 -nogui -j2 -z1p -i 0 -sfsck -scs -senc -p choose savedisk $source_hostname-$(date +"%d-%m-%Y-%H-%M-%S") $(lsblk -d | grep sd | cut -d ' ' -f 1)
 }
 
 #
-#  OS-SPECIFIC FUNCTIONS
+#  OS-SPECIFIC FUNCTIONSadd 
 #
 
 # Function for handling Windows OS
@@ -109,15 +142,15 @@ handle_windows() {
   n_gw=${n_gw:-10.0.2.2}
   read -p "Enter DNS: (default: 8.8.8.8): " n_dns
   n_dns=${n_dns:-8.8.8.8}
-  read -p "Enter Hostname (default: win-host): " hostname
-  hostname=${hostname:-win-host}
+  read -p "Enter Hostname (default: win-host): " n_hostname
+  n_hostname=${n_hostname:-win-host}
   read -p "Enter Bucket URL (default: sos-at-vie-1.exo.io): " BUCKET_URL
   BUCKET_URL=${BUCKET_URL:-sos-at-vie-1.exo.io}
-  echo -e "\e[32mYou sad : \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n Hostname: $hostname \n BUCKET_URL: $BUCKET_URL"
-  configure_network_interfaces "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$hostname"
+  echo -e "\e[32mYou said: \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n Hostname: $n_hostname \n BUCKET_URL: $BUCKET_URL"
+  configure_network_interfaces "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
+  # Check and mount S3 bucket
+  check_and_mount_s3_bucket "$BUCKET_URL"
 }
-
-# echo -e "\e[32mYou sad : \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n BUCKET_URL: $BUCKET_URL"
 
 # Function for handling Linux OS
 handle_linux() {
