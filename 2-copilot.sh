@@ -1,10 +1,8 @@
 #!/bin/bash
 set -e
-
 #
 #   GENERAL FUNCTIONS
 #
-
 # Function to handle errors
 error_handler() {
     echo -e "\e[31mError occurred in script at line: $1\e[0m"
@@ -67,6 +65,7 @@ configure_network_interfaces() {
   local n_gw=$3
   local n_dns=$4
   local bucket_url=$5
+  local hostname=$6
 
   try_me_if=$(ls /sys/class/net/ | grep -iP "eth.*")
 
@@ -87,8 +86,11 @@ configure_network_interfaces() {
           ip r delete default 2> /dev/null || true
       fi
   done
-}
 
+  # Set the hostname
+  echo -e "\e[32mSetting hostname to $hostname\e[0m"
+  hostnamectl set-hostname $hostname
+}
 
 #
 #  OS-SPECIFIC FUNCTIONS
@@ -107,11 +109,15 @@ handle_windows() {
   n_gw=${n_gw:-10.0.2.2}
   read -p "Enter DNS: (default: 8.8.8.8): " n_dns
   n_dns=${n_dns:-8.8.8.8}
+  read -p "Enter Hostname (default: win-host): " hostname
+  hostname=${hostname:-win-host}
   read -p "Enter Bucket URL (default: sos-at-vie-1.exo.io): " BUCKET_URL
   BUCKET_URL=${BUCKET_URL:-sos-at-vie-1.exo.io}
-  echo -e "\e[32mYou sad : \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n BUCKET_URL: $BUCKET_URL"
-  configure_network_interfaces "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL"
+  echo -e "\e[32mYou sad : \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n Hostname: $hostname \n BUCKET_URL: $BUCKET_URL"
+  configure_network_interfaces "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$hostname"
 }
+
+# echo -e "\e[32mYou sad : \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n BUCKET_URL: $BUCKET_URL"
 
 # Function for handling Linux OS
 handle_linux() {
