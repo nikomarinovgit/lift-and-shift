@@ -1,6 +1,15 @@
 #!/bin/bash
 set -e
 
+# Define a cleanup function
+cleanup() {
+    echo "An error occurred. Cleaning up..."
+    # Add any cleanup commands here
+}
+
+# Trap errors and call the cleanup function
+trap cleanup ERR
+
 dir_to_restore="to_restore_003" ;
 echo -e "\e[32mWiping /dev/vda with force\e[m" ; umount /mnt/root/boot/ ; umount /mnt/root/ ; vgchange -an ; vgremove -f $(vgdisplay -c | cut -d: -f1) ; wipefs -a /dev/vda -f ; lsblk; echo -e "\e[32mvda should be clean here\e[m" ; rm *.tmp *.bak ;
 [ -e "vda-pt.sf" ] && echo -e "\e[32mClonezilla backup is vda so we continue...\e[m" || ( echo -e "\e[32mChanging volume in Clonezilla backup from sda to vda\e[m" ; cnvt-ocs-dev -b -d /home/partimag $dir_to_restore sda vda ; )
@@ -16,7 +25,6 @@ dd if=vda-hidden-data-after-mbr of=/dev/vda seek=1 bs=512 count=2047 ;
 
 lsblk ; echo -e "\e[32mvda should be partitioned vith vda-pt.sf\e[m" ;
 
-
 echo -e "\e[32mCreate partition:\e[0m" ; echo -e "n\np\n\n\nw" | sudo fdisk /dev/vda ; 
 lsblk;
 
@@ -28,10 +36,7 @@ done
 for vdas in $(lsblk -l | tr ' ' '\n' | grep -E "^vda.{1}$" | cut -d ' ' -f 1); do
     if [ -f $vdas*.gz* ]; then
         echo -e "\e[32mDoing $vdas with existing $(ls $vdas*.gz*) exist\e[0m" ;
-        # ocs-resize-part  --batch /dev/$vdas ;
-        # gunzip -c $(ls $vdas*) | partclone.$(ls $vdas* | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/$vdas -r -F ;
         gunzip -c $(ls $vdas*) | partclone.restore -d3 -s - -O /dev/$vdas ;
-        # pigz -d -c $(ls $vdas*) | LC_ALL=C partclone.$(ls $vdas* | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760 -s - -r -o /dev/$vdas ;
     else
         echo -e "\e[33m$vdas no file. Must be LVM. See you later aligator! \e[0m";
     fi
@@ -70,35 +75,11 @@ for lvm in $(ls lvm_vg_*.conf); do
     for vg in $(ls -h $vg_name-*.gz); do
         echo -e "\e[32m Processing\e[31m $vg\e[32m into\e[31m $( ls -h $vg* | cut -d '.' -f 1)\e[0m ";
 
-        # lvresize -L +1918m /dev/vg_sys/vol_opt_Eracent
-        # e2fsck -f -y /dev/$vg_name/vol_opt_Eracent; resize2fs -p -f /dev/vg_sys/vol_opt_Eracent
-        # e2fsck -f -y $( ls -h $vg* | cut -d '.' -f 1) ;
-        # resize2fs -p -f $( ls -h $vg* | cut -d '.' -f 1) ;
-        # gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O $( ls -h $vg* | cut -d '.' -f 1) -W -r -F ;
-
-        # echo -e "\e[97m gunzip -c $vg | partclone.restore -d3 -s - -O /dev/$( ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 1)/$(ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 2) -W -F -C; \e[0m"  ;
-        # gunzip -c $vg | partclone.restore -d3 -s - -O /dev/$( ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 1)/$(ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 2) -W -F -C;
-        
-        # gunzip -c $vg | partclone.info -L tmp.info -s - ;
-        # echo "$(($(cat tmp.info | grep "Device size" | cut -d '=' -f 2 | cut -d ' ' -f 2) * 4096 / 1024 / 1024 / 1024))" ;
-        # # lvs  --units b $vg_name/$(echo $vg | cut -d '.' -f 1 | cut -d '-' -f 2) ;
-        # echo "$(($(lvs -o lv_size --units b $vg_name/$(echo $vg | cut -d '.' -f 1 | cut -d '-' -f 2) | grep -v 'LSize' | cut -d 'B' -f 1 ) / 1024 / 1024 / 1024))"; 
-
-        # rm tmp.info ;
-        
-        
-        # gunzip -c $vg | partclone.restore -d3 -s - -O /dev/$( ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 1)/$(ls -h $vg* | cut -d '.' -f 1 | cut -d '-' -f 2) -W -F;
-        
-        # gunzip -c $vg | partclone.restore -d3 -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) ;
         echo -e "\e[97m gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -W -r -F  \e[0m"  ;
         # dd if=/dev/zero of=/dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) bs=1025M status=progress ;
         gunzip -c $vg | partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/mapper/$( ls -h $vg* | cut -d '.' -f 1) -W -r -F ;
-        # echo -e "\e[97m pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) \e[0m" ;
-        # pigz -d -c $vg | LC_ALL=C partclone.$(echo $vg | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760  -s - -r -o $( ls -h $vg* | cut -d '.' -f 1) ;
     done
 done
-
-
 
 [ -e "/mnt/root" ] && echo -e "\e[32mExists\e[m" || ( echo -e "\e[32mDon't exist\e[0m" ; mkdir /mnt/root ; ) ;
 
@@ -133,3 +114,6 @@ fi
 sed -i 's/^root:x:/root::/' /etc/passwd
 
 EOF
+
+
+
