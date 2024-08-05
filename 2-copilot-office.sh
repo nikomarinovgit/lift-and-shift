@@ -16,10 +16,10 @@ echo "A1 clonezilla"
 echo $(date)
 
 # Change passwords
-echo 'root:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd 2> /dev/null || true
-echo 'user:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd 2> /dev/null || true
-# echo 'root:pptpd' | sudo chpasswd
-# echo 'user:pptpd' | sudo chpasswd
+# echo 'root:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd 2> /dev/null || true
+# echo 'user:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd 2> /dev/null || true
+echo 'root:pptpd' | sudo chpasswd
+echo 'user:pptpd' | sudo chpasswd
 
 # Allow root login via SSH if not already allowed
 if ! grep -q 'PermitRootLogin yes' /etc/ssh/sshd_config; then
@@ -117,6 +117,7 @@ check_and_mount_s3_bucket() {
       echo -e "\e[32mS3 bucket is here.\e[0m"
   else
       echo -e "\e[32mS3 bucket is missing. Trying to attach...\e[0m"
+      echo -e "s3fs clonezilla-test:/ /home/partimag -o use_path_request_style -o url=https://$bucket_url -o passwd_file=/root/.passwd-s3fs -o del_cache -o no_check_certificate -d"
       s3fs clonezilla-test:/ /home/partimag -o use_path_request_style -o url=https://$bucket_url -o passwd_file=/root/.passwd-s3fs -o del_cache -o no_check_certificate -d
       df -H | grep s3fs
   fi
@@ -134,12 +135,12 @@ handle_windows() {
   echo -e "\e[32mHandling Windows OS...\e[0m"
 
   # Prompt user to input network variables
-  read -p "Enter IP address: (default: 10.0.2.15): " n_ip  
-  n_ip=${n_ip:-10.0.2.15}
-  read -p "Enter Network mask: (default: 255.255.255.0): " n_mask
-  n_mask=${n_mask:-255.255.255.0}
-  read -p "Enter Gateway: (default: 10.0.2.2): " n_gw
-  n_gw=${n_gw:-10.0.2.2}
+  read -p "Enter IP address: (default: 172.28.175.140): " n_ip  
+  n_ip=${n_ip:-172.28.175.140}
+  read -p "Enter Network mask: (default: 255.255.240.0): " n_mask
+  n_mask=${n_mask:-255.255.240.0}
+  read -p "Enter Gateway: (default: 172.28.160.1): " n_gw
+  n_gw=${n_gw:-172.28.160.1}
   read -p "Enter DNS: (default: 8.8.8.8): " n_dns
   n_dns=${n_dns:-8.8.8.8}
   read -p "Enter Hostname (default: win-host): " n_hostname
