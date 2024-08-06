@@ -40,7 +40,7 @@ chmod 600 /root/.passwd-s3fs
 umount /mnt 2> /dev/null || true
 
 # Check for Windows partitions using fdisk and grep
-if [ -z "$(fdisk -l | grep -E "Microsoft|Windows")" ]; then
+if [ -z "$(fdisk -l | grep -E "Microsoft|Windows|NTFS")" ]; then
   echo -e "\e[32mNo Windows partition found.\e[0m"
   
   # Check for LVM volumes
@@ -56,7 +56,7 @@ else
   OS_TYPE="Windows"
 fi
 
-echo -e "\e[32mOS_TYPE is \e[0m $OS_TYPE"
+echo -e "\e[32mOS TYPE is \e[0m$OS_TYPE"
 
 # Function to configure network interfaces
 configure_network_interfaces() {
@@ -97,16 +97,21 @@ configure_network_interfaces() {
       echo "ip route add default via $n_gw dev $i"
       ip route add default via $n_gw dev $i # 2> /dev/null
       if [ "$(curl -s -o /dev/null -w "%{http_code}" "$bucket_url")" -eq 403 ]; then
-          echo -e "\e[32mcurl test successful to $n_gw\e[0m"
+          echo -e "\e[32mcurl test successful to $bucket_url\e[0m"
           break
       else
           echo -e "\e[32mcurl test failed to $bucket_url, next please...\e[0m"
           echo "ip a delete $n_ip/$n_mask dev $i"
-          ip a delete $n_ip/$n_mask dev $i # 2> /dev/null || true
+          ip a delete $n_ip/$n_mask dev $i 2> /dev/null || true
           echo "ip r delete default"
-          ip r delete default # 2> /dev/null || true
+          ip r delete default 2> /dev/null || true
       fi
   done
+
+export http_proxy=http://zproxy.a1.inside:443
+export https_proxy=http://zproxy.a1.inside:443
+export HTTP_PROXY=http://zproxy.a1.inside:443
+export HTTPS_PROXY=http://zproxy.a1.inside:443
 
 }
 
@@ -135,8 +140,6 @@ check_and_mount_s3_bucket() {
       df -H | grep s3fs
   fi
 
-  # Run Clonezilla
-  # /usr/sbin/ocs-sr -q2 -nogui -j2 -z1p -i 0 -sfsck -scs -senc -p choose savedisk $source_hostname-$(date +"%d-%m-%Y-%H-%M-%S") $(lsblk -d | grep sd | cut -d ' ' -f 1)
 }
 
 create_backup() {
@@ -147,6 +150,25 @@ create_backup() {
 
 }
 
+prompt_for_settings() {
+  # Prompt user to input network variables
+  read -p "Enter IP address: (default: $n_ip): " temp_ip  
+  n_ip=${n_ip:-$temp_ip}
+  read -p "Enter Network mask: (default: $n_mask): " temp_mask
+  n_mask=${n_mask:-$temp_mask}
+  read -p "Enter Gateway: (default: $n_gw): " temp_gw
+  n_gw=${n_gw:-$temp_gw}
+  read -p "Enter DNS: (default: $n_dns): " temp_dns
+  n_dns=${n_dns:-$temp_dns}
+  read -p "Enter Hostname (default: $n_hostname): " temp_hostname
+  n_hostname=${n_hostname:-$temp_hostname}
+  read -p "Enter Bucket URL (default: sos-at-vie-1.exo.io): " BUCKET_URL
+  BUCKET_URL=${BUCKET_URL:-sos-at-vie-1.exo.io}
+  echo -e "\e[32mSettings : \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n Hostname: $n_hostname \n BUCKET_URL: $BUCKET_URL"
+
+  read -p "Press Enter to continue ... "
+}
+
 #
 #  OS-SPECIFIC FUNCTIONS add 
 #
@@ -154,23 +176,8 @@ create_backup() {
 # Function for handling Windows OS
 handle_windows() {
   echo -e "\e[32mHandling Windows OS...\e[0m"
-
-  # Prompt user to input network variables
-  read -p "Enter IP address: (default: 172.28.175.140): " n_ip  
-  n_ip=${n_ip:-172.28.175.140}
-  read -p "Enter Network mask: (default: 255.255.240.0): " n_mask
-  n_mask=${n_mask:-255.255.240.0}
-  read -p "Enter Gateway: (default: 172.28.160.1): " n_gw
-  n_gw=${n_gw:-172.28.160.1}
-  read -p "Enter DNS: (default: 8.8.8.8): " n_dns
-  n_dns=${n_dns:-8.8.8.8}
-  read -p "Enter Hostname (default: win-host): " n_hostname
-  n_hostname=${n_hostname:-win-host}
-  read -p "Enter Bucket URL (default: sos-at-vie-1.exo.io): " BUCKET_URL
-  BUCKET_URL=${BUCKET_URL:-sos-at-vie-1.exo.io}
-  echo -e "\e[32mYou said: \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n Hostname: $n_hostname \n BUCKET_URL: $BUCKET_URL"
+  prompt_for_settings "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
   configure_network_interfaces "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
-  # Check and mount S3 bucket
   check_and_mount_s3_bucket "$BUCKET_URL"
   create_backup "$n_hostname"
 }
@@ -178,60 +185,70 @@ handle_windows() {
 # Function for handling Linux OS
 handle_linux() {
   echo -e "\e[32mHandling Linux OS...\e[0m"
-  
+  # find root lvm
+  root_lvm=$(lvs | grep -iP ".*root|.*ubuntu*|.*rhel*" | tr -s ' ' | cut -d ' ' -f 3)
+  echo -e "\e[32mFound root VG \e[0m$root_lvm"
+
   # Mount LVM volumes
-  for lvm in $(lvs | grep -iP ".*root" | tr -s ' ' | cut -d ' ' -f 3); do
-      lvm_path=$(lvdisplay rhel | grep "LV Path" | tr -s ' ' | cut -d ' ' -f 4)
+  for lvm in $root_lvm; do
+      lvm_path=$(lvdisplay $root_lvm | grep -iP ".*root|.*ubuntu" | grep "LV Path" | tr -s ' ' | cut -d ' ' -f 4)
+      echo -e "\e[32mmount LV\e[0m $lvm_path\e[32m from VG\e[0m $lvm\e[32m to /mnt\e[0m"
       mount $lvm_path /mnt
   done
 
-  source_hostname=$(cat /mnt/etc/hostname)
-  echo -e "\e[32mFound hostname \e[0m $source_hostname"
+  n_hostname=$(cat /mnt/etc/hostname)
+  echo -e "\e[32mFound hostname \e[0m $n_hostname"
 
-  # Find network configuration
-  ifcfgs=$(ls /mnt/etc/sysconfig/network-scripts/ifcfg-* | tr ' ' '\n')
-  for ifcfg in $ifcfgs; do
-      echo -e "\e[32mSearching in \e[0m $ifcfg"
-      if [ -z "$(grep 'GATEWAY' $ifcfg | cut -d '=' -f 2)" ]; then
-          echo -e "\e[32mNo gateway in \e[0m $ifcfg\n"
-      else
-          echo -e "\e[32mFound gateway in \e[0m $ifcfg\n"
-          n_if=$(basename $ifcfg)
-          n_gw=$(grep 'GATEWAY' $ifcfg | cut -d '=' -f 2)
-          n_mask=$(grep 'NETMASK' $ifcfg | cut -d '=' -f 2)
-          n_ip=$(grep 'IPADDR' $ifcfg | cut -d '=' -f 2)
-          n_dns=$(grep 'nameserver' /mnt/etc/resolv.conf | cut -d ' ' -f 2)
-      fi
-  done
+    if ls /mnt/etc/sysconfig/network-scripts/ifcfg-* | tr ' ' '\n' > /dev/null 2>&1 || ls /mnt/etc/NetworkManager/system-connections/ | tr ' ' '\n' > /dev/null 2>&1; then
+        # Network configuration found
+        echo -e "\e[32mNetwork configuration found\e[0m"
 
-  echo -e "\e[32mI found : \n \e[0mfrom interface: $n_if \n IP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n"
+        # Find network configuration
+        if ls /mnt/etc/sysconfig/network-scripts/ifcfg-* ; then
+            ifcfgs=$(ls /mnt/etc/sysconfig/network-scripts/ifcfg-* | tr ' ' '\n')
+            for ifcfg in $ifcfgs; do
+                echo -e "\e[32mSearching in \e[0m $ifcfg"
+                if [ -z "$(grep 'GATEWAY' $ifcfg | cut -d '=' -f 2)" ]; then
+                    echo -e "\e[32mNo gateway in \e[0m $ifcfg\n"
+                else
+                    echo -e "\e[32mFound gateway in \e[0m $ifcfg\n"
+                    n_if=$(basename $ifcfg)
+                    n_gw=$(grep 'GATEWAY' $ifcfg | cut -d '=' -f 2)
+                    n_mask=$(grep 'NETMASK' $ifcfg | cut -d '=' -f 2)
+                    n_ip=$(grep 'IPADDR' $ifcfg | cut -d '=' -f 2)
+                    n_dns=$(grep 'nameserver' /mnt/etc/resolv.conf | cut -d ' ' -f 2)
+                fi
+            done
+        else
+            if ls /mnt/etc/NetworkManager/system-connections/* > /dev/null 2>&1; then
+                files=$(ls /mnt/etc/NetworkManager/system-connections/*.nmconnection | tr ' ' '\n')
+                for file in $files; do
+                    echo -e "\e[32mSearching in \e[0m $file"
+                    gateway_line=$(grep 'gateway' $file | cut -d '=' -f 2)
+                    if [ -z "$gateway_line" ]; then
+                        echo -e "\e[32mNo gateway in \e[0m $file\n"
+                    else
+                        echo -e "\e[32mFound gateway in \e[0m $file\n"
+                        n_if=$(basename $file)
+                        n_gw=$(echo $gateway_line | cut -d ',' -f 2)
+                        n_ip_mask=$(echo $gateway_line | cut -d ',' -f 1)
+                        n_ip=$(echo $n_ip_mask | cut -d '/' -f 1)
+                        n_mask=$(echo $n_ip_mask | cut -d '/' -f 2)
+                        n_dns=$(grep 'dns' $file | cut -d '=' -f 2)
+                    fi
+                done
+            fi
+        fi
+    fi
 
-  read -p "Press Enter to continue..."
+  # Prompt user to input network variables
+  echo -e "\e[32mStarting prompt_for_settings $n_ip $n_mask $n_gw $n_dns $BUCKET_URL $n_hostname \e[0m"
+  # read -p "Press Enter to continue ... "
+  prompt_for_settings "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
+  configure_network_interfaces "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
+  check_and_mount_s3_bucket "$BUCKET_URL"
+  create_backup "$n_hostname"
 
-  # Set DNS
-  echo -e "\e[32mSetting the DNS\e[0m"
-  echo "nameserver $n_dns" > /etc/resolv.conf
-
-  BUCKET_URL="sos-at-vie-1.exo.io"
-  try_me_if=$(ls /sys/class/net/ | grep -iP "eth.*")
-
-  # Configure network interfaces
-  for i in $try_me_if; do
-      echo -e "\e[32mTrying interface $i \e[0m"
-      ip r delete default 2> /dev/null || true
-      ip a delete $n_ip/$n_mask dev $i 2> /dev/null || true
-      ip addr add $n_ip/$n_mask dev $i 2> /dev/null
-      ip link set $i up 2> /dev/null 
-      ip route add default via $n_gw dev $i 2> /dev/null
-      if [ "$(curl -s -o /dev/null -w "%{http_code}" "$BUCKET_URL")" -eq 403 ]; then
-          echo -e "\e[32mcurl test successful to $n_gw\e[0m"
-          break
-      else
-          echo -e "\e[32mcurl test failed to $BUCKET_URL, next please...\e[0m"
-          ip a delete $n_ip/$n_mask dev $i 2> /dev/null || true
-          ip r delete default 2> /dev/null || true
-      fi
-  done
 }
 
 # Function for handling Unknown OS
@@ -280,3 +297,4 @@ case "$OS_TYPE" in
     exit 1
     ;;
 esac
+
