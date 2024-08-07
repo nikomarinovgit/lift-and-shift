@@ -19,6 +19,28 @@ MASK: 255.255.240.0
 GW: 172.17.208.1
 DNS: 172.17.208.1
 
+[connection]
+id=eth0
+uuid=f7f5866a-855a-39e7-b180-5f37a10c314d
+type=ethernet
+autoconnect-priority=-999
+interface-name=eth0
+timestamp=1722855183
+
+[ethernet]
+
+[ipv4]
+address1=10.89.232.232/22,10.89.233.254
+dns=10.2.42.11;10.2.35.18;
+method=manual
+
+[ipv6]
+addr-gen-mode=eui64
+method=auto
+
+[proxy]
+
+
 
 #!/bin/bash
 
