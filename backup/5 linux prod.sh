@@ -67,10 +67,7 @@ configure_network_interfaces() {
   local bucket_url=$5
   local n_hostname=$6
 
-export http_proxy=http://zproxy.a1.inside:443
-export https_proxy=http://zproxy.a1.inside:443
-export HTTP_PROXY=http://zproxy.a1.inside:443
-export HTTPS_PROXY=http://zproxy.a1.inside:443
+
 
   # Set the hostname
   echo -e "\e[32mSetting hostname to $n_hostname\e[0m"
@@ -101,15 +98,32 @@ export HTTPS_PROXY=http://zproxy.a1.inside:443
       ip link set $i up # 2> /dev/null 
       echo "ip route add default via $n_gw dev $i"
       ip route add default via $n_gw dev $i # 2> /dev/null
-      if [ "$(curl -s -o /dev/null -w "%{http_code}" "$bucket_url")" -eq 403 ]; then
+      if [ "$(curl -s --max-time 5 -o /dev/null -w "%{http_code}" "$bucket_url")" -eq 403 ]; then
           echo -e "\e[32mcurl test successful to $bucket_url\e[0m"
           break
       else
-          echo -e "\e[32mcurl test failed to $bucket_url, next please...\e[0m"
-          echo "ip a delete $n_ip/$n_mask dev $i"
-          ip a delete $n_ip/$n_mask dev $i 2> /dev/null || true
-          echo "ip r delete default"
-          ip r delete default 2> /dev/null || true
+          echo -e "\e[32mcurl test failed to $bucket_url, trying with zproxy ...\e[0m"
+          
+          export http_proxy=http://zproxy.a1.inside:443
+          export https_proxy=http://zproxy.a1.inside:443
+          export HTTP_PROXY=http://zproxy.a1.inside:443
+          export HTTPS_PROXY=http://zproxy.a1.inside:443
+
+          if [ "$(curl -s --max-time 5 -o /dev/null -w "%{http_code}" "$bucket_url")" -eq 403 ]; then
+              echo -e "\e[32mcurl test successful to $bucket_url with zproxy\e[0m"
+              break
+          else
+              echo -e "\e[32mcurl test with proxy failed to $bucket_url, next please...\e[0m"
+              export http_proxy=""
+              export https_proxy=""
+              export HTTP_PROXY=""
+              export HTTPS_PROXY=""
+
+              # echo "ip a delete $n_ip/$n_mask dev $i"
+              # ip a delete $n_ip/$n_mask dev $i 2> /dev/null || true
+              # echo "ip r delete default"
+              # ip r delete default 2> /dev/null || true
+          fi
       fi
   done
 
@@ -275,7 +289,7 @@ if ls /mnt/etc/NetworkManager/system-connections/*.nmconnection > /dev/null 2>&1
           n_gw=$(cat $file | grep address1 | cut -d '/' -f 2 | cut -d ',' -f 2)
           n_ip=$(cat $file | grep address1 | cut -d '/' -f 1 | cut -d '=' -f 2)
           n_mask=$(cat $file | grep address1 | cut -d '/' -f 2 | cut -d ',' -f 1)
-          n_dns=$(cat $file | grep dns | cut -d '=' -f 2 | cut -d ';' -f 1)
+          n_dns=$(cat $file | grep dns= | cut -d '=' -f 2 | cut -d ';' -f 1)
 
           if [[ $n_mask =~ ^[0-9]+$ ]] && [ $n_mask -ge 0 ] && [ $n_mask -le 32 ]; then
               n_mask=$(cidr_to_netmask $n_mask)
