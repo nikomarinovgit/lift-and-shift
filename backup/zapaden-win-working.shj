@@ -119,10 +119,10 @@ configure_network_interfaces() {
               export HTTP_PROXY=""
               export HTTPS_PROXY=""
 
-              # echo "ip a delete $n_ip/$n_mask dev $i"
-              # ip a delete $n_ip/$n_mask dev $i 2> /dev/null || true
-              # echo "ip r delete default"
-              # ip r delete default 2> /dev/null || true
+              echo "ip a delete $n_ip/$n_mask dev $i"
+              ip a delete $n_ip/$n_mask dev $i 2> /dev/null || true
+              echo "ip r delete default"
+              ip r delete default 2> /dev/null || true
           fi
       fi
   done
@@ -203,16 +203,16 @@ hex_to_decimal() {
 
 prompt_for_settings() {
   # Prompt user to input network variables
-  read -p "Enter IP address: (default: $n_ip): " temp_ip
-  n_ip=${n_ip:-$temp_ip}
-  read -p "Enter Network mask: (default: $n_mask): " temp_mask
-  n_mask=${n_mask:-$temp_mask}
-  read -p "Enter Gateway: (default: $n_gw): " temp_gw
-  n_gw=${n_gw:-$temp_gw}
-  read -p "Enter DNS: (default: $n_dns): " temp_dns
-  n_dns=${n_dns:-$temp_dns}
-  read -p "Enter Hostname (default: $n_hostname): " temp_hostname
-  n_hostname=${n_hostname:-$temp_hostname}
+  read -p "Enter IP address: (default: $n_ip): " input_ip
+  n_ip=${input_ip:-$n_ip}
+  read -p "Enter Network mask: (default: $n_mask): " input_mask
+  n_mask=${input_mask:-$n_mask}
+  read -p "Enter Gateway: (default: $n_gw): " input_gw
+  n_gw=${input_gw:-$n_gw}
+  read -p "Enter DNS: (default: $n_dns): " input_dns
+  n_dns=${input_dns:-$n_dns}
+  read -p "Enter Hostname (default: $n_hostname): " input_hostname
+  n_hostname=${input_hostname:-$n_hostname}
   read -p "Enter Bucket URL (default: sos-at-vie-1.exo.io): " BUCKET_URL
   BUCKET_URL=${BUCKET_URL:-sos-at-vie-1.exo.io}
   echo -e "\e[32mSettings : \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n Hostname: $n_hostname \n BUCKET_URL: $BUCKET_URL"
@@ -235,40 +235,45 @@ handle_windows() {
     mount /dev/sda2 /mnt
 
     windows_auto_net
-        # if [ -n "$n_if" ] && [ -n "$n_gw" ] && [ -n "$n_ip" ] && [ -n "$n_mask" ] && [ -n "$n_dns" ]; then
-        #     return 0
-        # fi
-        # return 1
+
 
     read -p "Press Enter to continue ... "
-#   prompt_for_settings "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
-#   configure_network_interfaces "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
+    prompt_for_settings "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
+    configure_network_interfaces "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
 #   check_and_mount_s3_bucket "$BUCKET_URL"
 #   create_backup "$n_hostname"
 }
 
 windows_auto_net() {
 
-reged -x /mnt/Windows/System32/config/SYSTEM HKEY_LOCAL_MACHINE\SOFTWARE ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces /tmp/reg.dump > /dev/null
+    reged -x /mnt/Windows/System32/config/SYSTEM HKEY_LOCAL_MACHINE\SOFTWARE ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces /tmp/reg.dump > /dev/null
 
-for interfaces in $(cat /tmp/reg.dump | grep -iP '.*\\Interfaces\\*{.'); do
+    for interfaces in $(cat /tmp/reg.dump | grep -iP '.*\\Interfaces\\*{.'); do
+        # echo -e "\e[32mSearching in \e[0m $interfaces"
+        interfaces_name=$(echo $interfaces | cut -d '[' -f 2 | cut -d ']' -f 1 | cut -d '\' -f 7)
+        reged -x /mnt/Windows/System32/config/SYSTEM HKEY_LOCAL_MACHINE\SOFTWARE ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces\\$interfaces_name /tmp/reg.dump.$interfaces_name > /dev/null
+    done
 
-echo -e "\e[32mSearching in \e[0m $interfaces"
-interfaces_name=$(echo $interfaces | cut -d '[' -f 2 | cut -d ']' -f 1 | cut -d '\' -f 7)
-echo $interfaces_name
-reged -x /mnt/Windows/System32/config/SYSTEM HKEY_LOCAL_MACHINE\SOFTWARE ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces\\$interfaces_name /tmp/reg.dump.$interfaces_name > /dev/null
-cat /tmp/reg.dump."$interfaces_name"
+    for dumps in $(ls /tmp/reg.dump.\{*); do
 
-read -p "Press Enter to continue ... "
-done
+        # echo -e "\e[32mSearching in \e[0m $dumps"
+        n_ip=$(hex_to_decimal $(awk '/^"IPAddress"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
+        n_gw=$(hex_to_decimal $(awk '/^"DefaultGateway"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
+        n_mask=$(hex_to_decimal $(awk '/^"SubnetMask"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
+        n_dns=$(cat $dumps | grep -oP '^"NameServer.*' | cut -d '=' -f 2 | cut -d ':' -f 2 |  tr -d '"' | tr -d '\n' )
 
-win_ip=$(hex_to_decimal $(awk '/^"IPAddress"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' /tmp/reg.dump | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
-win_gw=$(hex_to_decimal $(awk '/^"DefaultGateway"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' /tmp/reg.dump | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
-win_mask=$(hex_to_decimal $(awk '/^"SubnetMask"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' /tmp/reg.dump | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
-win_dns=$(cat /tmp/reg.dump | grep -oP '^"NameServer.*' | cut -d '=' -f 2 | cut -d ':' -f 2 |  tr -d '"' | tr -d '\n' )
+        if [ -n "$n_gw" ] && [ -n "$n_ip" ] && [ -n "$n_mask" ] && [ -n "$n_dns" ]; then
+            break
+        fi
 
-echo -e "\e[32mFound Settings : \n \e[0mIP address: $win_ip \n Network mask: $win_mask \n Gateway: $win_gw \n DNS: $win_dns \n "
-# rm /tmp/reg.dump
+    done
+
+    reged -x /mnt/Windows/System32/config/SYSTEM HKEY_LOCAL_MACHINE\SOFTWARE ControlSet001\\Services\\Tcpip\\Parameters /tmp/hostname-reg.dump > /dev/null
+    n_hostname=$(cat /tmp/hostname-reg.dump | grep -oP '^"Hostname.*' | cut -d '=' -f 2 | tr -d '"' | tr -d '\n' )
+    
+    echo -e "\e[32mFound Settings : \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n Hostname: $n_hostname "
+
+    rm /tmp/reg.dump /tmp/reg.dump.* /tmp/hostname-reg.dump
 
 }
 
