@@ -19,7 +19,7 @@ The ISO is created by create_iso.sh from inside a booted clonezilla.iso (https:/
     <img src="https://github.com/user-attachments/assets/236ffe84-da33-482a-a276-882e0f346ed6" alt="Bootloader Image">
   </p>
   
-## Follow the steps: 
+### Follow the steps: 
   Will boot directly into script and welcome you with:
   
    - Confirm the detected OS.
@@ -74,7 +74,7 @@ The ISO is created by create_iso.sh from inside a booted clonezilla.iso (https:/
 </p>
 
 
-## 2. Restore VMware VMs (destination VM)
+# 2. Restore VMware VMs (destination VM)
 
 
 
