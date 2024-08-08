@@ -255,7 +255,7 @@ windows_auto_net() {
         n_ip=$(hex_to_decimal $(awk '/^"IPAddress"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
         n_gw=$(hex_to_decimal $(awk '/^"DefaultGateway"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
         n_mask=$(hex_to_decimal $(awk '/^"SubnetMask"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
-        n_dns=$(cat $dumps | grep -oP '^"NameServer.*' | cut -d '=' -f 2 | cut -d ':' -f 2 |  tr -d '"' | tr -d '\0' | tr -d '\r'  )
+        n_dns=$(cat $dumps | grep -oP '^"NameServer.*' | cut -d '=' -f 2 | cut -d ':' -f 2 |  tr -d '"' | tr -d '\0' | tr -d '\r' | cut -d ',' -f 1 )
 
         if [ -n "$n_gw" ] && [ -n "$n_ip" ] && [ -n "$n_mask" ] && [ -n "$n_dns" ]; then
             break
