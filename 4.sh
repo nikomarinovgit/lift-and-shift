@@ -101,10 +101,10 @@ configure_network_interfaces() {
           break
       else
           echo -e "\e[32mcurl test failed to $bucket_url, next please...\e[0m"
-          echo "ip a delete $n_ip/$n_mask dev $i"
-          ip a delete $n_ip/$n_mask dev $i 2> /dev/null || true
-          echo "ip r delete default"
-          ip r delete default 2> /dev/null || true
+          # echo "ip a delete $n_ip/$n_mask dev $i"
+          # ip a delete $n_ip/$n_mask dev $i 2> /dev/null || true
+          # echo "ip r delete default"
+          # ip r delete default 2> /dev/null || true
       fi
   done
 
@@ -199,6 +199,60 @@ handle_linux() {
   n_hostname=$(cat /mnt/etc/hostname)
   echo -e "\e[32mFound hostname \e[0m $n_hostname"
 
+    # if ls /mnt/etc/sysconfig/network-scripts/ifcfg-* | tr ' ' '\n' > /dev/null 2>&1 || ls /mnt/etc/NetworkManager/system-connections/ | tr ' ' '\n' > /dev/null 2>&1; then
+    #     # Network configuration found
+    #     echo -e "\e[32mNetwork configuration found\e[0m"
+
+    #     # Find network configuration
+    #     if ls /mnt/etc/sysconfig/network-scripts/ifcfg-* ; then
+    #         ifcfgs=$(ls /mnt/etc/sysconfig/network-scripts/ifcfg-* | tr ' ' '\n')
+    #         for ifcfg in $ifcfgs; do
+    #             echo -e "\e[32mSearching in \e[0m $ifcfg"
+    #             if [ -z "$(grep 'GATEWAY' $ifcfg | cut -d '=' -f 2)" ]; then
+    #                 echo -e "\e[32mNo gateway in \e[0m $ifcfg\n"
+    #             else
+    #                 echo -e "\e[32mFound gateway in \e[0m $ifcfg\n"
+    #                 n_if=$(basename $ifcfg)
+    #                 n_gw=$(grep 'GATEWAY' $ifcfg | cut -d '=' -f 2)
+    #                 n_mask=$(grep 'NETMASK' $ifcfg | cut -d '=' -f 2)
+    #                 n_ip=$(grep 'IPADDR' $ifcfg | cut -d '=' -f 2)
+    #                 n_dns=$(grep 'nameserver' /mnt/etc/resolv.conf | cut -d ' ' -f 2)
+    #             fi
+    #         done
+    #     else
+    #         if ls /mnt/etc/NetworkManager/system-connections/* > /dev/null 2>&1; then
+    #             files=$(ls /mnt/etc/NetworkManager/system-connections/*.nmconnection | tr ' ' '\n')
+    #             for file in $files; do
+    #                 echo -e "\e[32mSearching in \e[0m $file"
+    #                 gateway_line=$(grep 'gateway' $file | cut -d '=' -f 2)
+    #                 if [ -z "$gateway_line" ]; then
+    #                     echo -e "\e[32mNo gateway in \e[0m $file\n"
+    #                 else
+    #                     echo -e "\e[32mFound gateway in \e[0m $file\n"
+    #                     n_if=$(basename $file)
+    #                     n_gw=$(echo $gateway_line | cut -d ',' -f 2)
+    #                     n_ip_mask=$(echo $gateway_line | cut -d ',' -f 1)
+    #                     n_ip=$(echo $n_ip_mask | cut -d '/' -f 1)
+    #                     n_mask=$(echo $n_ip_mask | cut -d '/' -f 2)
+    #                     n_dns=$(grep 'dns' $file | cut -d '=' -f 2)
+    #                 fi
+    #             done
+    #         fi
+    #     fi
+    # fi
+  linux_auto_network
+  # Prompt user to input network variables
+  echo -e "\e[32mStarting prompt_for_settings $n_ip $n_mask $n_gw $n_dns $BUCKET_URL $n_hostname \e[0m"
+  # read -p "Press Enter to continue ... "
+  prompt_for_settings "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
+  configure_network_interfaces "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
+  check_and_mount_s3_bucket "$BUCKET_URL"
+  create_backup "$n_hostname"
+
+}
+
+linux_auto_network () {
+
     if ls /mnt/etc/sysconfig/network-scripts/ifcfg-* | tr ' ' '\n' > /dev/null 2>&1 || ls /mnt/etc/NetworkManager/system-connections/ | tr ' ' '\n' > /dev/null 2>&1; then
         # Network configuration found
         echo -e "\e[32mNetwork configuration found\e[0m"
@@ -241,14 +295,8 @@ handle_linux() {
         fi
     fi
 
-  # Prompt user to input network variables
-  echo -e "\e[32mStarting prompt_for_settings $n_ip $n_mask $n_gw $n_dns $BUCKET_URL $n_hostname \e[0m"
-  # read -p "Press Enter to continue ... "
-  prompt_for_settings "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
-  configure_network_interfaces "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
-  check_and_mount_s3_bucket "$BUCKET_URL"
-  create_backup "$n_hostname"
 
+  
 }
 
 # Function for handling Unknown OS
