@@ -4,4 +4,4 @@ data/
 .vagrant/
 a/.env
 .env
-old_stuff/*
+old_stuff/
