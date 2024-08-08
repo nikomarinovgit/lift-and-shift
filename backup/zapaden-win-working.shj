@@ -236,11 +236,9 @@ handle_windows() {
 
     windows_auto_net
 
-
-    read -p "Press Enter to continue ... "
     prompt_for_settings "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
     configure_network_interfaces "$n_ip" "$n_mask" "$n_gw" "$n_dns" "$BUCKET_URL" "$n_hostname"
-#   check_and_mount_s3_bucket "$BUCKET_URL"
+    check_and_mount_s3_bucket "$BUCKET_URL"
 #   create_backup "$n_hostname"
 }
 
@@ -249,14 +247,11 @@ windows_auto_net() {
     reged -x /mnt/Windows/System32/config/SYSTEM HKEY_LOCAL_MACHINE\SOFTWARE ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces /tmp/reg.dump > /dev/null
 
     for interfaces in $(cat /tmp/reg.dump | grep -iP '.*\\Interfaces\\*{.'); do
-        # echo -e "\e[32mSearching in \e[0m $interfaces"
         interfaces_name=$(echo $interfaces | cut -d '[' -f 2 | cut -d ']' -f 1 | cut -d '\' -f 7)
         reged -x /mnt/Windows/System32/config/SYSTEM HKEY_LOCAL_MACHINE\SOFTWARE ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces\\$interfaces_name /tmp/reg.dump.$interfaces_name > /dev/null
     done
 
     for dumps in $(ls /tmp/reg.dump.\{*); do
-
-        # echo -e "\e[32mSearching in \e[0m $dumps"
         n_ip=$(hex_to_decimal $(awk '/^"IPAddress"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
         n_gw=$(hex_to_decimal $(awk '/^"DefaultGateway"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
         n_mask=$(hex_to_decimal $(awk '/^"SubnetMask"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
@@ -270,16 +265,6 @@ windows_auto_net() {
 
     reged -x /mnt/Windows/System32/config/SYSTEM HKEY_LOCAL_MACHINE\SOFTWARE ControlSet001\\Services\\Tcpip\\Parameters /tmp/hostname-reg.dump > /dev/null
     n_hostname=$(cat /tmp/hostname-reg.dump | grep -oP '^"Hostname.*' | cut -d '=' -f 2 | tr -d '"' | tr -d '\0' | tr -d '\r'  )
-    
-echo $n_ip > /tmp/test
-echo $n_mask >> /tmp/test
-echo $n_gw >> /tmp/test
-echo $n_dns >> /tmp/test
-echo $n_hostname >> /tmp/test
-
-    read -p "Press Enter to continue ... "
-    echo -e "\e[32mFound Settings : \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n Hostname: $n_hostname "
-
     rm /tmp/reg.dump /tmp/reg.dump.* /tmp/hostname-reg.dump
 
 }
@@ -317,9 +302,9 @@ linux_auto_net_ifcfg () {
 
     if ls /mnt/etc/sysconfig/network-scripts/ifcfg-* > /dev/null 2>&1 ; then
     # Network configuration found
-    echo -e "\e[32mNetwork configuration found in \e[0m network-scripts"
+    echo -e "\e[32mNetwork configuration found in \e[0mnetwork-scripts"
 
-    ifcfgs=$(ls /mnt/etc/sysconfig/network-scripts/ifcfg-* | tr ' ' '\n' > /dev/null 2>&1)
+    ifcfgs=$(ls /mnt/etc/sysconfig/network-scripts/ifcfg-* | tr ' ' '\n' )
     for ifcfg in $ifcfgs; do
         echo -e "\e[32mSearching in \e[0m $ifcfg"
         if [ -z "$(grep 'GATEWAY' $ifcfg | cut -d '=' -f 2)" ]; then
@@ -332,6 +317,11 @@ linux_auto_net_ifcfg () {
             n_ip=$(grep 'IPADDR' $ifcfg | cut -d '=' -f 2)
             n_dns=$(grep 'nameserver' /mnt/etc/resolv.conf | cut -d ' ' -f 2)
         fi
+
+        if [ -n "$n_gw" ] && [ -n "$n_ip" ] && [ -n "$n_mask" ] && [ -n "$n_dns" ]; then
+            break
+        fi
+
     done
     echo -e "\e[32mFound Settings : \n \e[0mfrom interface: $n_if \n IP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n "
     fi
