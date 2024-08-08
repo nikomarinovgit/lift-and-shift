@@ -260,7 +260,7 @@ windows_auto_net() {
         n_ip=$(hex_to_decimal $(awk '/^"IPAddress"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
         n_gw=$(hex_to_decimal $(awk '/^"DefaultGateway"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
         n_mask=$(hex_to_decimal $(awk '/^"SubnetMask"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' $dumps | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
-        n_dns=$(cat $dumps | grep -oP '^"NameServer.*' | cut -d '=' -f 2 | cut -d ':' -f 2 |  tr -d '"' | tr -d '\n' )
+        n_dns=$(cat $dumps | grep -oP '^"NameServer.*' | cut -d '=' -f 2 | cut -d ':' -f 2 |  tr -d '"' | tr -d '\0' | tr -d '\r'  )
 
         if [ -n "$n_gw" ] && [ -n "$n_ip" ] && [ -n "$n_mask" ] && [ -n "$n_dns" ]; then
             break
@@ -269,8 +269,15 @@ windows_auto_net() {
     done
 
     reged -x /mnt/Windows/System32/config/SYSTEM HKEY_LOCAL_MACHINE\SOFTWARE ControlSet001\\Services\\Tcpip\\Parameters /tmp/hostname-reg.dump > /dev/null
-    n_hostname=$(cat /tmp/hostname-reg.dump | grep -oP '^"Hostname.*' | cut -d '=' -f 2 | tr -d '"' | tr -d '\n' )
+    n_hostname=$(cat /tmp/hostname-reg.dump | grep -oP '^"Hostname.*' | cut -d '=' -f 2 | tr -d '"' | tr -d '\0' | tr -d '\r'  )
     
+echo $n_ip > /tmp/test
+echo $n_mask >> /tmp/test
+echo $n_gw >> /tmp/test
+echo $n_dns >> /tmp/test
+echo $n_hostname >> /tmp/test
+
+    read -p "Press Enter to continue ... "
     echo -e "\e[32mFound Settings : \n \e[0mIP address: $n_ip \n Network mask: $n_mask \n Gateway: $n_gw \n DNS: $n_dns \n Hostname: $n_hostname "
 
     rm /tmp/reg.dump /tmp/reg.dump.* /tmp/hostname-reg.dump
