@@ -1,5 +1,14 @@
 # WMware -> Exoscale
 
+There are two scripts 
+  - /a1/backup.sh
+  - restore.sh
+
+The /a1/ folder is copied on the ISO while creating it.
+The ISO is created by create_iso.sh from inside a booted clonezilla.iso (https://clonezilla.org/downloads/download.php?branch=stable).
+
+
+
 ## 1. Backup VMware VMs (source VM):
 
   Boot the a1-clonezilla.iso.
