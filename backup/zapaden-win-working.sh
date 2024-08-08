@@ -315,7 +315,7 @@ linux_auto_net_ifcfg () {
             n_gw=$(grep 'GATEWAY' $ifcfg | cut -d '=' -f 2)
             n_mask=$(grep 'NETMASK' $ifcfg | cut -d '=' -f 2)
             n_ip=$(grep 'IPADDR' $ifcfg | cut -d '=' -f 2)
-            n_dns=$(grep 'nameserver' /mnt/etc/resolv.conf | cut -d ' ' -f 2)
+            n_dns=$(grep m 1 'nameserver' /mnt/etc/resolv.conf | cut -d ' ' -f 2)
         fi
 
         if [ -n "$n_gw" ] && [ -n "$n_ip" ] && [ -n "$n_mask" ] && [ -n "$n_dns" ]; then
@@ -347,7 +347,7 @@ linux_auto_net_nmconnection () {
             n_gw=$(cat $file | grep address1 | cut -d '/' -f 2 | cut -d ',' -f 2)
             n_ip=$(cat $file | grep address1 | cut -d '/' -f 1 | cut -d '=' -f 2)
             n_mask=$(cat $file | grep address1 | cut -d '/' -f 2 | cut -d ',' -f 1)
-            n_dns=$(cat $file | grep dns= | cut -d '=' -f 2 | cut -d ';' -f 1)
+            n_dns=$(cat $file | grep -m 1 dns= | cut -d '=' -f 2 | cut -d ';' -f 1)
 
             if [[ $n_mask =~ ^[0-9]+$ ]] && [ $n_mask -ge 0 ] && [ $n_mask -le 32 ]; then
                 n_mask=$(cidr_to_netmask $n_mask)
