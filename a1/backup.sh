@@ -17,10 +17,9 @@ echo "A1 clonezilla"
 echo $(date)
 
 # Change passwords
-# echo 'root:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd 2> /dev/null || true
-# echo 'user:Lxu_if9`94;2Kd<6UQ#2,:t50e*ASRt="fGR8tWV,zvVjcfK@p' | sudo chpasswd 2> /dev/null || true
-echo 'root:pptpd' | sudo chpasswd
-echo 'user:pptpd' | sudo chpasswd
+
+echo "root:$root_password" | sudo chpasswd
+echo "user:$user_password" | sudo chpasswd
 
 # Allow root login via SSH if not already allowed
 if ! grep -q 'PermitRootLogin yes' /etc/ssh/sshd_config; then
@@ -34,7 +33,8 @@ fi
 systemctl start ssh
 
 # Set up S3FS password file
-echo "clonezilla-test:EXOdc65249415796c46532f659d:TcxaGSoeUUcBWWVac4Q68q8J3G5ilbREcBg-Gx22VWM" > /root/.passwd-s3fs
+# echo "clonezilla-test:EXOdc65249415796c46532f659d:TcxaGSoeUUcBWWVac4Q68q8J3G5ilbREcBg-Gx22VWM" > /root/.passwd-s3fs
+echo "$s3_bucket" > /root/.passwd-s3fs
 chmod 600 /root/.passwd-s3fs
 
 # Unmount /mnt if mounted
