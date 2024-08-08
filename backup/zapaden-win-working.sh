@@ -180,7 +180,7 @@ create_backup() {
   local source_hostname=$1
 
   # Run Clonezilla
-  /usr/sbin/ocs-sr -q2 -nogui -j2 -z1p -i 4096 -sfsck -scs -senc -p choose savedisk $source_hostname-$(date +"%d-%m-%Y-%H-%M-%S") $(lsblk -d | grep sd | cut -d ' ' -f 1)
+  /usr/sbin/ocs-sr -q2 -nogui -j2 -z9p -i 4096 -sfsck -scs -senc -p choose savedisk $source_hostname-$(date +"%d-%m-%Y-%H-%M-%S") $(lsblk -d | grep sd | cut -d ' ' -f 1)
 
 }
 
