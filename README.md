@@ -1,6 +1,6 @@
 # WMware -> Exoscale
 
-## 1. Backup VMware VMs (source VMs):
+## 1. Backup VMware VMs (source VM):
 
   Boot the a1-clonezilla.iso.
   Bootloader has two mode GRAPHYC and TEXT. May differ between releases.
@@ -64,7 +64,7 @@
 </p>
 
 
-## 2. Restore VMware VMs (destination VMs)
+## 2. Restore VMware VMs (destination VM)
 
 
 
