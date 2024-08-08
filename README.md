@@ -74,7 +74,7 @@ The ISO is created by create_iso.sh from inside a booted clonezilla.iso (https:/
 </p>
 
 
-# 2. Restore VMware VMs (destination VM)
+## 2. Restore VMware VMs (destination VM)
 
 
 
