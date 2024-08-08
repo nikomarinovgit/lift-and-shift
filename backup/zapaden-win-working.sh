@@ -315,7 +315,7 @@ linux_auto_net_ifcfg () {
             n_gw=$(grep 'GATEWAY' $ifcfg | cut -d '=' -f 2)
             n_mask=$(grep 'NETMASK' $ifcfg | cut -d '=' -f 2)
             n_ip=$(grep 'IPADDR' $ifcfg | cut -d '=' -f 2)
-            n_dns=$(grep m 1 'nameserver' /mnt/etc/resolv.conf | cut -d ' ' -f 2)
+            n_dns=$(grep -m 1 'nameserver' /mnt/etc/resolv.conf | cut -d ' ' -f 2)
         fi
 
         if [ -n "$n_gw" ] && [ -n "$n_ip" ] && [ -n "$n_mask" ] && [ -n "$n_dns" ]; then
