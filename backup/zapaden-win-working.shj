@@ -184,18 +184,6 @@ create_backup() {
 
 }
 
-# hex_to_decimal() {
-#     local hex_values=$1
-#     local decimal_values=""
-#     IFS=',' read -ra ADDR <<< "$hex_values"
-#     for hex in "${ADDR[@]}"; do
-#         if [[ -n "$hex" ]]; then
-#             decimal_values+=$(printf "\x$(printf %x $((16#$hex)))")
-#         fi
-#     done
-#     echo "$decimal_values"
-# }
-
 hex_to_decimal() {
     local hex_values=$1
     local decimal_values=""
@@ -263,13 +251,24 @@ windows_auto_net() {
 
 reged -x /mnt/Windows/System32/config/SYSTEM HKEY_LOCAL_MACHINE\SOFTWARE ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces /tmp/reg.dump > /dev/null
 
+for interfaces in $(cat /tmp/reg.dump | grep -iP '.*\\Interfaces\\*{.'); do
+
+echo -e "\e[32mSearching in \e[0m $interfaces"
+interfaces_name=$(echo $interfaces | cut -d '[' -f 2 | cut -d ']' -f 1 | cut -d '\' -f 7)
+echo $interfaces_name
+reged -x /mnt/Windows/System32/config/SYSTEM HKEY_LOCAL_MACHINE\SOFTWARE ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces\\$interfaces_name /tmp/reg.dump.$interfaces_name > /dev/null
+cat /tmp/reg.dump."$interfaces_name"
+
+read -p "Press Enter to continue ... "
+done
+
 win_ip=$(hex_to_decimal $(awk '/^"IPAddress"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' /tmp/reg.dump | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
 win_gw=$(hex_to_decimal $(awk '/^"DefaultGateway"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' /tmp/reg.dump | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
 win_mask=$(hex_to_decimal $(awk '/^"SubnetMask"=hex\(7\)/ {flag=1; print; next} /^"/ {flag=0} flag {print}' /tmp/reg.dump | cut -d ':' -f 2 | tr -d '\\ ' | tr -d '\r' | tr -d '\n' | tr -d '\0') 2> /dev/null )
 win_dns=$(cat /tmp/reg.dump | grep -oP '^"NameServer.*' | cut -d '=' -f 2 | cut -d ':' -f 2 |  tr -d '"' | tr -d '\n' )
 
 echo -e "\e[32mFound Settings : \n \e[0mIP address: $win_ip \n Network mask: $win_mask \n Gateway: $win_gw \n DNS: $win_dns \n "
-rm /tmp/reg.dump
+# rm /tmp/reg.dump
 
 }
 
