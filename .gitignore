@@ -1,6 +1,4 @@
-lift-and-shift-KIT.sh
 data/
 .vagrant/
-a/.env
-.env
+a1/.env
 old_stuff/
