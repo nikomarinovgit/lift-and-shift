@@ -1,5 +1,5 @@
-# data/
+data/
 .vagrant/
 a1/.env
-# old_stuff/
-# restore/
+old_stuff/
+restore/
