@@ -33,7 +33,6 @@ fi
 systemctl start ssh
 
 # Set up S3FS password file
-# echo "clonezilla-test:EXOdc65249415796c46532f659d:TcxaGSoeUUcBWWVac4Q68q8J3G5ilbREcBg-Gx22VWM" > /root/.passwd-s3fs
 echo "$s3_bucket" > /root/.passwd-s3fs
 chmod 600 /root/.passwd-s3fs
 
