@@ -1,29 +1,168 @@
 #!/bin/bash
 set -e
+# Function to handle errors
+error_handler() {
+    echo -e "\e[31mError occurred in script at line: $1\e[0m"
+    exit 1
+}
 
-dir_to_restore="to_restore_003" ;
-echo -e "\e[32mWiping /dev/vda with force\e[m" ; umount /mnt/root/boot/ ; umount /mnt/root/ ; vgchange -an ; vgremove -f $(vgdisplay -c | cut -d: -f1) ; wipefs -a /dev/vda -f ; lsblk; echo -e "\e[32mvda should be clean here\e[m" ; rm *.tmp *.bak ;
-[ -e "vda-pt.sf" ] && echo -e "\e[32mClonezilla backup is vda so we continue...\e[m" || ( echo -e "\e[32mChanging volume in Clonezilla backup from sda to vda\e[m" ; cnvt-ocs-dev -b -d /home/partimag $dir_to_restore sda vda ; )
-[ -e "blkdev.list.tmp" ] && echo -e "\e[32mblkdev.list.tmp exists.\e[0m " || ( echo -e "\e[31mblkdev.list.tmp does not exist. Creating it...\e[0m" ; cp blkdev.list blkdev.list.tmp ; )
-[ -e "parts.tmp" ] && echo -e "\e[32mparts.tmp exists\e[0m " || ( echo -e "\e[31mparts.tmp does not exist. Creating it ...\e[0m" ; cp parts parts.tmp ; )
-echo -e "\e[32mRestoring vda partitions from vda-pt.sf\e[m" ; 
+# Trap errors and call error_handler
+trap 'error_handler $LINENO' ERR
 
-dd if=/dev/zero of=/dev/vda bs=512 seek=209714176 count=1024 ;
-parted -s /dev/vda mklabel msdos ;
-sfdisk --force /dev/vda < vda-pt.sf ;
-ocs-restore-mbr --ocsroot /home/partimag $dir_to_restore vda ;
-dd if=vda-hidden-data-after-mbr of=/dev/vda seek=1 bs=512 count=2047 ;
+echo "A1 clonezilla"
+echo $(date)
 
-lsblk ; echo -e "\e[32mvda should be partitioned vith vda-pt.sf\e[m" ;
+# Unmount /mnt if mounted
+umount /mnt 2> /dev/null || true
+
+#
+#   GENERAL FUNCTIONS
+#
+
+usage() {
+    echo "Usage: $0 <backup_folder>"
+    echo "  <backup_folder>  The directory containing the backup to restore"
+    exit 1
+}
+
+# Check if the first parameter is provided
+if [ -z "$1" ]; then
+    usage
+fi
+
+echo -e "\e[32mRestoring $1\e[m" ;
+
+if [ ! -d "/home/partimag/$1" ]; then
+    echo -e "\e[31mError: Backup folder /home/partimag/$1 does not exist.\e[0m"
+    exit 1
+fi
+
+read -p "Are you sure you want to restore /home/partimag/$1? (Y/n) " -n 1 -r
+echo    # move to a new line
+REPLY=${REPLY:-Y}  # default to 'Y' if no input
+
+if [[ $REPLY =~ ^[Nn]$ ]]; then
+    echo "Operation cancelled."
+    exit 1
+fi
 
 
-echo -e "\e[32mCreate partition:\e[0m" ; echo -e "n\np\n\n\nw" | sudo fdisk /dev/vda ; 
-lsblk;
+wipe_vda() {
+    echo -e "\e[32mWiping /dev/vda with force\e[m"
+    umount /mnt/root/boot/ > /dev/null || true
+    umount /mnt/root/ > /dev/null || true
+    vgchange -an > /dev/null || true
+    vgremove -f $(vgdisplay -c | cut -d: -f1) > /dev/null || true
+    wipefs -a /dev/vda -f > /dev/null || true
+    sleep 1 > /dev/null || true
+    lsblk
+    echo -e "\e[32mvda should be clean here\e[m"
+    rm *.tmp *.bak > /dev/null || true
+}
 
-for p in $(cat parts | tr ' ' '\n' |  grep -E "^sd.{1}$" ); do
-    sed -i "s|$p|vda$(($(lsblk -l /dev/vda | grep -v 'lvm' | wc -l) -2 ))|g" blkdev.list.tmp ;
-    sed -i "s|$p|vda$(($(lsblk -l /dev/vda | grep -v 'lvm' | wc -l) -2 ))|g" parts.tmp ;
-done
+sda_to_vda() {
+    local backup_dir="/home/partimag/$1"
+
+    if [ -e "$backup_dir/vda-pt.sf" ]; then
+        echo -e "\e[32mClonezilla backup is vda so we continue...\e[m"
+    else
+        echo -e "\e[32mChanging volume in Clonezilla backup from sda to vda\e[m"
+        cnvt-ocs-dev -b -d /home/partimag $1 sda vda
+    fi
+
+    if [ -e "$backup_dir/blkdev.list.tmp" ]; then
+        echo -e "\e[32mblkdev.list.tmp exists.\e[0m"
+    else
+        echo -e "\e[31mblkdev.list.tmp does not exist. Creating it...\e[0m"
+        cp "$backup_dir/blkdev.list" "$backup_dir/blkdev.list.tmp"
+    fi
+
+    if [ -e "$backup_dir/parts.tmp" ]; then
+        echo -e "\e[32mparts.tmp exists\e[0m"
+    else
+        echo -e "\e[31mparts.tmp does not exist. Creating it ...\e[0m"
+        cp "$backup_dir/parts" "$backup_dir/parts.tmp"
+    fi
+
+    echo -e "\e[32mRestoring vda partitions from vda-pt.sf\e[m"
+}
+
+partition_vda() {
+    local backup_dir="/home/partimag/$1"
+
+    dd if=/dev/zero of=/dev/vda bs=512 seek=209714176 count=1024
+    parted -s /dev/vda mklabel msdos
+    sfdisk --force /dev/vda < "$backup_dir/vda-pt.sf"
+    ocs-restore-mbr --ocsroot /home/partimag "$1" vda
+    dd if="$backup_dir/vda-hidden-data-after-mbr" of=/dev/vda seek=1 bs=512 count=2047
+
+    lsblk
+    echo -e "\e[32mvda should be partitioned with vda-pt.sf\e[m"
+
+    echo -e "\e[32mCreate partition:\e[0m"
+    echo -e "n\np\n\n\nw" | sudo fdisk /dev/vda
+    lsblk
+
+    for p in $(cat "$backup_dir/parts" | tr ' ' '\n' | grep -E "^sd.{1}$"); do
+        sed -i "s|$p|vda$(($(lsblk -l /dev/vda | grep -v 'lvm' | wc -l) -2 ))|g" "$backup_dir/blkdev.list.tmp"
+        sed -i "s|$p|vda$(($(lsblk -l /dev/vda | grep -v 'lvm' | wc -l) -2 ))|g" "$backup_dir/parts.tmp"
+    done
+}
+
+restore_vda() {
+    local backup_dir="/home/partimag/$1"
+
+    for vdas in $(lsblk -l | tr ' ' '\n' | grep -E "^vda.{1}$" | cut -d ' ' -f 1); do
+        if [ -f "$backup_dir/$vdas*.gz*" ]; then
+            echo -e "\e[32mDoing $vdas with existing $(ls $backup_dir/$vdas*.gz*) exist\e[0m"
+            # ocs-resize-part  --batch /dev/$vdas ;
+            # gunzip -c $(ls $backup_dir/$vdas*) | partclone.$(ls $backup_dir/$vdas* | cut -d '.' -f 2 | cut -d '-' -f 1) -s - -O /dev/$vdas -r -F ;
+            
+            gunzip -c $(ls $backup_dir/$vdas*) | partclone.restore -d3 -s - -O /dev/$vdas
+            # pigz -d -c $(ls $backup_dir/$vdas*) | LC_ALL=C partclone.$(ls $backup_dir/$vdas* | cut -d '.' -f 2 | cut -d '-' -f 1) -z 10485760 -s - -r -o /dev/$vdas ;
+        else
+            echo -e "\e[33m$vdas no file. Must be LVM. See you later alligator! \e[0m"
+        fi
+    done
+}
+
+wipe_vda
+sda_to_vda "$1"
+partition_vda "$1"
+restore_vda "$1"
+
+read -p "Enter to continue..." -n 1 -r
+
+
+
+
+
+
+
+
+
+
+# [ -e "vda-pt.sf" ] && echo -e "\e[32mClonezilla backup is vda so we continue...\e[m" || ( echo -e "\e[32mChanging volume in Clonezilla backup from sda to vda\e[m" ; cnvt-ocs-dev -b -d /home/partimag $1 sda vda ; )
+# [ -e "blkdev.list.tmp" ] && echo -e "\e[32mblkdev.list.tmp exists.\e[0m " || ( echo -e "\e[31mblkdev.list.tmp does not exist. Creating it...\e[0m" ; cp blkdev.list blkdev.list.tmp ; )
+# [ -e "parts.tmp" ] && echo -e "\e[32mparts.tmp exists\e[0m " || ( echo -e "\e[31mparts.tmp does not exist. Creating it ...\e[0m" ; cp parts parts.tmp ; )
+# echo -e "\e[32mRestoring vda partitions from vda-pt.sf\e[m" ; 
+
+# dd if=/dev/zero of=/dev/vda bs=512 seek=209714176 count=1024 ;
+# parted -s /dev/vda mklabel msdos ;
+# sfdisk --force /dev/vda < vda-pt.sf ;
+# ocs-restore-mbr --ocsroot /home/partimag $dir_to_restore vda ;
+# dd if=vda-hidden-data-after-mbr of=/dev/vda seek=1 bs=512 count=2047 ;
+
+# lsblk ; echo -e "\e[32mvda should be partitioned vith vda-pt.sf\e[m" ;
+
+
+# echo -e "\e[32mCreate partition:\e[0m" ; echo -e "n\np\n\n\nw" | sudo fdisk /dev/vda ; 
+# lsblk;
+
+# for p in $(cat parts | tr ' ' '\n' |  grep -E "^sd.{1}$" ); do
+#     sed -i "s|$p|vda$(($(lsblk -l /dev/vda | grep -v 'lvm' | wc -l) -2 ))|g" blkdev.list.tmp ;
+#     sed -i "s|$p|vda$(($(lsblk -l /dev/vda | grep -v 'lvm' | wc -l) -2 ))|g" parts.tmp ;
+# done
 
 for vdas in $(lsblk -l | tr ' ' '\n' | grep -E "^vda.{1}$" | cut -d ' ' -f 1); do
     if [ -f $vdas*.gz* ]; then
