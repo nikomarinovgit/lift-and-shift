@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-source ./.env
+source /run/live/medium/a1/.env
 #
 #   GENERAL FUNCTIONS
 #
