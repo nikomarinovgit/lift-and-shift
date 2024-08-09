@@ -90,6 +90,7 @@ sda_to_vda() {
 initialize_vda () {
 
     local backup_dir="/home/partimag/$1"
+    local hidden_data_file="$backup_dir/vda-hidden-data-after-mbr"
     echo -e "\e[32mStarting partitioning of /dev/vda\e[m"
 
     # Zero out the end of the disk to clear any old partition table data
@@ -105,7 +106,15 @@ initialize_vda () {
     ocs-restore-mbr --ocsroot /home/partimag "$1" vda
 
     # Restore hidden data after MBR
-    dd if="$backup_dir/vda-hidden-data-after-mbr" of=/dev/vda seek=1 bs=512 count=2047
+    # dd if="$backup_dir/vda-hidden-data-after-mbr" of=/dev/vda seek=1 bs=512 count=2047
+
+    if [ -e "$hidden_data_file" ]; then
+        echo -e "\e[32mRestoring hidden data from $hidden_data_file\e[m"
+        dd if="$hidden_data_file" of=/dev/vda seek=1 bs=512 count=2047
+    else
+        echo -e "\e[31mError: File $hidden_data_file does not exist.\e[m"
+        # exit 1
+    fi
 
     # Force sync the disk layout
     sync
@@ -140,26 +149,42 @@ restore_vdas () {
 
 }
 
+extract_all_acrchive_files() {
 
-extract_all_zst_files() {
+    zst_files_to_extract=$(ls /home/partimag/$1/*.a[a-z] 2> /dev/null || true )
+    gz_files_to_extract=$(ls /home/partimag/$1/*.a[a-z][a-z]  2> /dev/null || true )
+
+    if [ ! -z "$zst_files_to_extract" ]; then
+        for files in "$zst_files_to_extract" ; do
+            extract_zst_files "$1"
+        done
+    else
+        echo -e "\e[33mNo zst multi-files archive found\e[m"
+    fi
+
+    if [ ! -z "$gz_files_to_extract" ]; then
+        for files in "$gz_files_to_extract" ; do
+            extract_gz_files "$1"
+        done
+    else
+        echo -e "\e[33mNo gz multi-files archive found\e[m"
+    fi
+
+}
+
+extract_gz_files() {
     local backup_dir="/home/partimag/$1"
+    for file in $(ls $backup_dir/*.gz.a[a-z][a-z] | cut -d '.' -f -3 | uniq ); do
+        echo -e "\e[32mExtracting\e[0  $( ls $file.a[a-z][a-z] | tr '\n' ' ') | zcat > $file"
+        cat $( ls $file.a[a-z][a-z] | tr '\n' ' ') | zcat > $file 
+    done
+}
 
-    # Find all unique prefixes of .zst.a* files
-    for file in "$backup_dir"/*.zst.a*; do
-        [ -e "$file" ] || continue
-        local prefix="${file%.a*}"
-        local output_file="$prefix"
-
-        if [ -e "$output_file" ]; then
-            echo -e "\e[33m$output_file already exists. Skipping extraction.\e[m"
-            continue
-        fi
-
-        echo -e "\e[32mExtracting $prefix\e[m"
-
-        # Concatenate and decompress the split files
-        cat "$prefix".* | zstdcat > "$output_file"
-        echo -e "\e[32mExtracted $output_file\e[m"
+extract_zst_files() {
+    local backup_dir="/home/partimag/$1"
+    for file in $(ls $backup_dir/*.zst.a[a-z] | cut -d '.' -f -3 | uniq ); do
+        echo -e "\e[32mExtracting\e[0 $( ls $file.a[a-z] | tr '\n' ' ') | zstdcat > $file"
+        cat $( ls $file.a[a-z] | tr '\n' ' ') | zstdcat > $file 
     done
 }
 
@@ -184,11 +209,12 @@ restore_vdas() {
     done
 }
 
-wipe_vda
-sda_to_vda "$1"
-initialize_vda "$1"
-partition_vda "$1"
-extract_all_zst_files "$1"
+# wipe_vda
+# sda_to_vda "$1"
+# initialize_vda "$1"
+# partition_vda "$1"
+# extract_all_zst_files "$1"
+extract_all_acrchive_files "$1"
 # restore_vdas "$1"
 
 read -p "Enter to continue to FINAL..." -n 1 -r
