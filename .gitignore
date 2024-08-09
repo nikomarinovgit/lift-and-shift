@@ -1,5 +1,6 @@
-data/*
+data/
+data1/
 .vagrant/
 a1/.env
-old_stuff/*
+old_stuff/
 # restore/
